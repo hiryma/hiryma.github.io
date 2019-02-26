@@ -1,0 +1,16 @@
+ManifestFileVersion: 0
+CRC: 3686798135
+Hashes:
+  AssetFileHash:
+    serializedVersion: 2
+    Hash: c7465fc732df1d7d2eaae752509f7ad2
+  TypeTreeHash:
+    serializedVersion: 2
+    Hash: 5ad585dd02dfb5016c0dad519eab8f49
+HashAppended: 0
+ClassTypes:
+- Class: 49
+  Script: {instanceID: 0}
+Assets:
+- Assets/AssetBundleSource/443.txt
+Dependencies: []

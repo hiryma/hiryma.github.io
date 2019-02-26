@@ -1,0 +1,16 @@
+ManifestFileVersion: 0
+CRC: 1643635354
+Hashes:
+  AssetFileHash:
+    serializedVersion: 2
+    Hash: ee0288700e519ea96507def631b39b43
+  TypeTreeHash:
+    serializedVersion: 2
+    Hash: 5ad585dd02dfb5016c0dad519eab8f49
+HashAppended: 0
+ClassTypes:
+- Class: 49
+  Script: {instanceID: 0}
+Assets:
+- Assets/AssetBundleSource/708.txt
+Dependencies: []
