@@ -53,9 +53,11 @@
 
 	<h2>実装メモ</h2>
 	<ul>
-		<li>AssetBundle解釈周りは<a href="https://github.com/AnemoneStar/shibunyan">shibunyan</a>からの移植だが、面倒くさくなって解釈を途中までしかやっていない
+		<li>AssetBundle解釈周りは<a
+				href="https://github.com/AnemoneStar/shibunyan">shibunyan</a>からの移植だが、面倒くさくなって解釈を途中までしかやっていない
 		<li>AssetBundleの内部formatが上がった時に解析と対応作業が必要になるので、こういうものを自作するのは本来良くない
-		<li>LZ4は<a href="https://github.com/pierrec/node-lz4">pierrec/node-lz4</a>を使っているが、そのままだとブラウザで動かなかったので、よくわからないまま一部いじっている。
+		<li>LZ4は<a
+				href="https://github.com/pierrec/node-lz4">pierrec/node-lz4</a>を使っているが、そのままだとブラウザで動かなかったので、よくわからないまま一部いじっている。
 	</ul>
 
 	<h2>デバグ</h2>
@@ -405,8 +407,7 @@
 			dst = 0;
 			for (i = 0; i < strings.length; i++) {
 				strings[dst] = strings[i];
-				if (strings[i] != prev)
-				{
+				if (strings[i] != prev) {
 					dst++;
 				}
 				prev = strings[i];
@@ -422,7 +423,7 @@
 			}
 
 			for (i = 0; i < strings.length; i++) {
-//				console.log('path: ' + strings[i]);
+				//				console.log('path: ' + strings[i]);
 
 				var tr = document.createElement('tr');
 				var td = document.createElement('td');
@@ -432,7 +433,7 @@
 			}
 			var t8 = new Date().getTime();
 			console.log('show results : ' + (t8 - t7) + ' msec');
-return; // この先は工事中
+			return; // この先は工事中
 
 			// アセット展開
 			var assets = [];
