@@ -61,200 +61,274 @@
 	</ul>
 
 	<h2>デバグ</h2>
-	<a id="download" download="uncompressed.bin">[download uncompressed binary]</a>
+	<ul>
+		<li><a id="downloadHeader" download="uncompressedHeader.bin">[download uncompressed header binary]</a>
+		<li><a id="download" download="uncompressed.bin">[download uncompressed binary]</a>
+	</ul>
 </body>
 
 <script type="text/javascript" src="lz4.js"></script>
 <script>
+	"use strict";
 	var Buffer = require('buffer').Buffer;
-	var LZ4 = require('1');
-	(function main() {
-		"use strict";
-		//BinaryReaderクラス定義 BigEndian固定
-		var BinaryReader = function (arrayBuffer, offset) {
-			if (typeof offset === 'undefined') {
-				this.mPosition = 0;
+	var LZ4 = require('1'); // なんでかわからないが`1`と書くと動く。サンプルでは`lz4`とあったのだがそれでは動かない。
+
+	// なんか使う関数群を入れるUtil
+	var Util = {};
+	Util.readString = function (bytes, position) {
+		var c0, c1, c2, c3;
+		var ret = {};
+		var str = "";
+		var i = position;
+		while (i < bytes.length) {
+			c0 = bytes[i];
+			if ((i + 1) < bytes.length) {
+				c1 = bytes[i + 1];
 			} else {
-				this.mPosition = offset;
+				c1 = 0;
 			}
-			this.mBytes = new Uint8Array(arrayBuffer);
-			this.mIsLittleEndian = false;
-		};
-		BinaryReader.prototype.setIsLittleEndian = function (isLittleEndian) {
-			this.mIsLittleEndian = isLittleEndian;
+			if ((i + 2) < bytes.length) {
+				c2 = bytes[i + 2];
+			} else {
+				c2 = 0;
+			}
+			if ((i + 3) < bytes.length) {
+				c3 = bytes[i + 3];
+			} else {
+				c3 = 0;
+			}
+
+			if (c0 < 0x20) { // 制御文字とみなして文字列終了
+				i += 1;
+				break;
+			} else if (c0 < 0x80) { // 通常ASCII
+				str += String.fromCharCode(c0);
+				i += 1;
+			} else if (c0 < 0xc2) { // 二文字目以降のはず。UTF8ならありえないが、バイナリならありうるので、とりあえず文字列終了
+				i += 1;
+				break;
+			} else if (c0 < 0xe0) { // 2バイト文字
+				str += String.fromCharCode(((c0 & 0x1F) << 6) | (c1 & 0x3F));
+				i += 2;
+			} else if (c0 < 0xf0) { // 3バイト文字
+				str += String.fromCharCode(((c0 & 0x0F) << 12) |
+					((c1 & 0x3F) << 6) |
+					((c2 & 0x3F) << 0));
+				i += 3;
+			} else if (c0 < 0xf8) { // 4バイト文字
+				str += String.fromCharCode(((c0 & 0x07) << 18) |
+					((c1 & 0x3F) << 12) |
+					((c2 & 0x3F) << 6) |
+					((c3 & 0x3F) << 0));
+				i += 4;
+			} else { // UTF-8ではありえない
+				i += 1;
+				break;
+			}
 		}
-		BinaryReader.prototype.getBytes = function () {
-			return this.mBytes;
-		};
-		BinaryReader.prototype.getPosition = function () {
-			return this.mPosition;
-		};
-		BinaryReader.prototype.setPosition = function (position) {
-			console.assert(position <= this.mBytes.length);
-			this.mPosition = position;
-		};
-		BinaryReader.prototype.skip = function (length) {
-			console.assert((this.mPosition + length) <= this.mBytes.length);
-			this.mPosition += length;
-		};
-		BinaryReader.prototype.align = function (align) {
-			this.mPosition = (this.mPosition + align - 1) & ~(align - 1);
-		};
-		BinaryReader.prototype.getU1 = function () {
-			console.assert((this.mPosition + 1) <= this.mBytes.length);
-			var ret = this.mBytes[this.mPosition];
-			this.mPosition++;
-			return ret;
-		};
-		BinaryReader.prototype.getU2 = function () {
-			console.assert((this.mPosition + 2) <= this.mBytes.length);
-			var ret = 0;
-			if (this.mIsLittleEndian) {
-				ret |= this.mBytes[this.mPosition + 1] << 8;
-				ret |= this.mBytes[this.mPosition + 0];
-			} else {
-				ret |= this.mBytes[this.mPosition + 0] << 8;
-				ret |= this.mBytes[this.mPosition + 1];
-			}
-			this.mPosition += 2;
-			return ret;
-		};
-		BinaryReader.prototype.getU4 = function () {
-			console.assert((this.mPosition + 4) <= this.mBytes.length);
-			var ret = 0;
-			if (this.mIsLittleEndian) {
-				ret |= this.mBytes[this.mPosition + 3] << 24;
-				ret |= this.mBytes[this.mPosition + 2] << 16;
-				ret |= this.mBytes[this.mPosition + 1] << 8;
-				ret |= this.mBytes[this.mPosition + 0];
-			} else {
-				ret |= this.mBytes[this.mPosition + 0] << 24;
-				ret |= this.mBytes[this.mPosition + 1] << 16;
-				ret |= this.mBytes[this.mPosition + 2] << 8;
-				ret |= this.mBytes[this.mPosition + 3];
-			}
-			this.mPosition += 4;
-			return ret;
-		};
-		BinaryReader.prototype.getU8Low = function () {
-			console.assert((this.mPosition + 8) <= this.mBytes.length);
-			var ret = 0;
-			if (this.mIsLittleEndian) {
-				ret = this.getU4();
-				var high = this.getU4();
-				console.assert(high === 0, "getU8Low() high is not zero. " + high);
-			} else {
-				var high = this.getU4();
-				console.assert(high === 0, "getU8Low() high is not zero. " + high);
-				ret = this.getU4();
-			}
-			return ret;
-		};
-		BinaryReader.prototype.getU8AsHexNumber = function () {
-			console.assert((this.mPosition + 8) <= this.mBytes.length);
-			var ret = "";
-			var i, byte;
-			if (this.mIsLittleEndian) {
-				for (i = 7; i >= 0; i--) {
-					byte = this.mBytes[this.mPosition + i];
-					ret += String.fromCharCode(this.toHex(byte >> 4));
-					ret += String.fromCharCode(this.toHex(byte & 0xf));
-				}
-			} else {
-				for (i = 0; i < 8; i++) {
-					byte = this.mBytes[this.mPosition + i];
-					ret += String.fromCharCode(this.toHex(byte >> 4));
-					ret += String.fromCharCode(this.toHex(byte & 0xf));
-				}
-			}
-			this.mPosition += 8;
-			return ret;
-		};
-		BinaryReader.prototype.toHex = function (x) {
-			var code;
-			switch (x) {
-				case 0: code = 48; break;
-				case 1: code = 49; break;
-				case 2: code = 50; break;
-				case 3: code = 51; break;
-				case 4: code = 52; break;
-				case 5: code = 53; break;
-				case 6: code = 54; break;
-				case 7: code = 55; break;
-				case 8: code = 56; break;
-				case 9: code = 57; break;
-				case 10: code = 65; break;
-				case 11: code = 66; break;
-				case 12: code = 67; break;
-				case 13: code = 68; break;
-				case 14: code = 69; break;
-				case 15: code = 70; break;
-			}
-			return code;
+		ret.string = str;
+		ret.readBytes = i - position;
+		return ret;
+	};
+	Util.toHexDigit = function (zeroToFifteen) { //0-15のnumberを0-9,a-fに変換
+		var code;
+		switch (zeroToFifteen) {
+			case 0: code = '0'.charCodeAt(0); break;
+			case 1: code = '1'.charCodeAt(0); break;
+			case 2: code = '2'.charCodeAt(0); break;
+			case 3: code = '3'.charCodeAt(0); break;
+			case 4: code = '4'.charCodeAt(0); break;
+			case 5: code = '5'.charCodeAt(0); break;
+			case 6: code = '6'.charCodeAt(0); break;
+			case 7: code = '7'.charCodeAt(0); break;
+			case 8: code = '8'.charCodeAt(0); break;
+			case 9: code = '9'.charCodeAt(0); break;
+			case 10: code = 'a'.charCodeAt(0); break;
+			case 11: code = 'b'.charCodeAt(0); break;
+			case 12: code = 'c'.charCodeAt(0); break;
+			case 13: code = 'd'.charCodeAt(0); break;
+			case 14: code = 'e'.charCodeAt(0); break;
+			case 15: code = 'f'.charCodeAt(0); break;
 		}
-		BinaryReader.prototype.readAsHexNumber = function (length) {
-			console.assert((this.mPosition + length) <= this.mBytes.length);
-			var out, i, byte, c;
-			out = "";
-			for (i = 0; i < length; i++) {
+		return code;
+	};
+	Util.isPath = function (str) { // [a-zA-Z0-9_./]のみで構成されていて、.と/が最低1個以上あればtrueを返す
+		var i, c, ok;
+		var periodExists = false;
+		var slashExists = false;
+		for (i = 0; i < str.length; i++) {
+			c = str.charCodeAt(i);
+			var isSmall = (c >= 'a'.charCodeAt(0)) && (c <= 'z'.charCodeAt(0));
+			var isBig = (c >= 'A'.charCodeAt(0)) && (c <= 'Z'.charCodeAt(0));
+			var isDigit = (c >= '0'.charCodeAt(0)) && (c <= '9'.charCodeAt(0));
+			var tmpPeriodExists = (c === '.'.charCodeAt(0));
+			var tmpSlashExists = (c === '/'.charCodeAt(0));
+			var isOtherValid = (c === '_'.charCodeAt(0));
+			if (tmpPeriodExists) {
+				periodExists = true;
+			}
+			if (tmpSlashExists) {
+				slashExists = true;
+			}
+			if (!isSmall && !isBig && !isDigit && !tmpPeriodExists && !tmpSlashExists && !isOtherValid) {
+				return false;
+			}
+		}
+		return periodExists && slashExists; // ピリオドとスラッシュが最低一個はないとパスとは認めないが例外はありそうだなあ
+	};
+	Util.extractStrings = function (bytes) {
+		var i = 0;
+		var ret = [];
+		while (true) {
+			var result = Util.readString(bytes, i);
+			if (result.string.length > 0) {
+				ret.push(result.string);
+			}
+			i += result.readBytes;
+			if (result.readBytes === 0) {
+				break;
+			}
+		}
+		return ret;
+	};
+
+	//BinaryReaderクラス定義
+	var BinaryReader = function (arrayBuffer, offset) {
+		if (typeof offset === 'undefined') {
+			this.mPosition = 0;
+		} else {
+			this.mPosition = offset;
+		}
+		this.mBytes = new Uint8Array(arrayBuffer);
+		this.mIsLittleEndian = false;
+	};
+	BinaryReader.prototype.setIsLittleEndian = function (isLittleEndian) {
+		this.mIsLittleEndian = isLittleEndian;
+	}
+	BinaryReader.prototype.getBytes = function () {
+		return this.mBytes;
+	};
+	BinaryReader.prototype.getPosition = function () {
+		return this.mPosition;
+	};
+	BinaryReader.prototype.setPosition = function (position) {
+		console.assert(position <= this.mBytes.length);
+		this.mPosition = position;
+	};
+	BinaryReader.prototype.skip = function (length) {
+		console.assert((this.mPosition + length) <= this.mBytes.length);
+		this.mPosition += length;
+	};
+	BinaryReader.prototype.align = function (align) {
+		this.mPosition = (this.mPosition + align - 1) & ~(align - 1);
+	};
+	BinaryReader.prototype.getU1 = function () {
+		console.assert((this.mPosition + 1) <= this.mBytes.length);
+		var ret = this.mBytes[this.mPosition];
+		this.mPosition++;
+		return ret;
+	};
+	BinaryReader.prototype.getU2 = function () {
+		console.assert((this.mPosition + 2) <= this.mBytes.length);
+		var ret = 0;
+		if (this.mIsLittleEndian) {
+			ret |= this.mBytes[this.mPosition + 1] << 8;
+			ret |= this.mBytes[this.mPosition + 0];
+		} else {
+			ret |= this.mBytes[this.mPosition + 0] << 8;
+			ret |= this.mBytes[this.mPosition + 1];
+		}
+		this.mPosition += 2;
+		return ret;
+	};
+	BinaryReader.prototype.getU4 = function () {
+		console.assert((this.mPosition + 4) <= this.mBytes.length);
+		var ret = 0;
+		if (this.mIsLittleEndian) {
+			ret |= this.mBytes[this.mPosition + 3] << 24;
+			ret |= this.mBytes[this.mPosition + 2] << 16;
+			ret |= this.mBytes[this.mPosition + 1] << 8;
+			ret |= this.mBytes[this.mPosition + 0];
+		} else {
+			ret |= this.mBytes[this.mPosition + 0] << 24;
+			ret |= this.mBytes[this.mPosition + 1] << 16;
+			ret |= this.mBytes[this.mPosition + 2] << 8;
+			ret |= this.mBytes[this.mPosition + 3];
+		}
+		this.mPosition += 4;
+		return ret;
+	};
+	BinaryReader.prototype.getU8Low = function () {
+		console.assert((this.mPosition + 8) <= this.mBytes.length);
+		var ret = 0;
+		if (this.mIsLittleEndian) {
+			ret = this.getU4();
+			var high = this.getU4();
+			console.assert(high === 0, "getU8Low() high is not zero. " + high);
+		} else {
+			var high = this.getU4();
+			console.assert(high === 0, "getU8Low() high is not zero. " + high);
+			ret = this.getU4();
+		}
+		return ret;
+	};
+	BinaryReader.prototype.getU8AsHexNumber = function () {
+		console.assert((this.mPosition + 8) <= this.mBytes.length);
+		var ret = "";
+		var i, byte;
+		if (this.mIsLittleEndian) {
+			for (i = 7; i >= 0; i--) {
 				byte = this.mBytes[this.mPosition + i];
-				out += String.fromCharCode(this.toHex(byte >> 4));
-				out += String.fromCharCode(this.toHex(byte & 0xf));
+				ret += String.fromCharCode(Util.toHexDigit(byte >> 4));
+				ret += String.fromCharCode(Util.toHexDigit(byte & 0xf));
 			}
-			this.mPosition += length;
-			return out;
-		};
-		BinaryReader.prototype.getString = function () {
-			var out, c0, c1, c2;
-			out = "";
-			while (this.mPosition < this.mBytes.length) {
-				c0 = this.mBytes[this.mPosition];
-				this.mPosition++;
-				if (c0 === 0) {
-					break;
-				}
-				switch (c0 >> 4) {
-					case 0: case 1: case 2: case 3: case 4: case 5: case 6: case 7:
-						// 0xxxxxxx
-						out += String.fromCharCode(c0);
-						break;
-					case 12: case 13:
-						// 110x xxxx   10xx xxxx
-						c1 = this.mBytes[this.mPosition];
-						this.mPosition++;
-						out += String.fromCharCode(((c0 & 0x1F) << 6) | (c1 & 0x3F));
-						break;
-					case 14:
-						// 1110 xxxx  10xx xxxx  10xx xxxx
-						c1 = this.mBytes[this.mPosition];
-						c2 = this.mBytes[this.mPosition + 1];
-						this.mPosition += 2;
-						out += String.fromCharCode(((c0 & 0x0F) << 12) |
-							((c1 & 0x3F) << 6) |
-							((c2 & 0x3F) << 0));
-						break;
-				}
+		} else {
+			for (i = 0; i < 8; i++) {
+				byte = this.mBytes[this.mPosition + i];
+				ret += String.fromCharCode(Util.toHexDigit(byte >> 4));
+				ret += String.fromCharCode(Util.toHexDigit(byte & 0xf));
 			}
-			return out;
-		};
-		BinaryReader.prototype.uncompressLz4 = function (
-			compressedSize,
-			uncompressedSize,
-			flags) {
-			if ((typeof compressedSize === 'undefined') &&
-				(typeof uncompressedSize === 'undefined') &&
-				(typeof flags === 'undefined')) {
-				compressedSize = this.getU4();
-				uncompressedSize = this.getU4();
-				flags = this.getU4();
-			}
-			var i;
-
-			//			alert('flags: ' + flags + '\n' + 'compressedSize: ' + compressedSize + '\n' + 'uncompressedSize: ' + uncompressedSize + '\n');
-
-			var compressedUint8Array = this.mBytes.slice(
-				this.mPosition,
-				this.mPosition + compressedSize);
+		}
+		this.mPosition += 8;
+		return ret;
+	};
+	BinaryReader.prototype.readAsHexNumber = function (length) {
+		console.assert((this.mPosition + length) <= this.mBytes.length);
+		var out, i, byte, c;
+		out = "";
+		for (i = 0; i < length; i++) {
+			byte = this.mBytes[this.mPosition + i];
+			out += String.fromCharCode(Util.toHexDigit(byte >> 4));
+			out += String.fromCharCode(Util.toHexDigit(byte & 0xf));
+		}
+		this.mPosition += length;
+		return out;
+	};
+	BinaryReader.prototype.getString = function () {
+		var result = Util.readString(this.mBytes, this.mPosition);
+		this.mPosition += result.readBytes;
+		return result.string;
+	};
+	BinaryReader.prototype.uncompressLz4 = function (
+		compressedSize,
+		uncompressedSize,
+		flags) {
+		if ((typeof compressedSize === 'undefined') &&
+			(typeof uncompressedSize === 'undefined') &&
+			(typeof flags === 'undefined')) {
+			compressedSize = this.getU4();
+			uncompressedSize = this.getU4();
+			flags = this.getU4();
+		}
+		var i, outputReader;
+		console.log('flags: ' + flags + '\n' + 'compressedSize: ' + compressedSize + '\n' + 'uncompressedSize: ' + uncompressedSize + '\n');
+		var compressedUint8Array = this.mBytes.slice(
+			this.mPosition,
+			this.mPosition + compressedSize);
+		console.assert((this.mPosition + compressedSize) <= this.mBytes.length);
+		if (flags === 0) {
+			outputReader = new BinaryReader(compressedUint8Array.buffer);
+		} else {
 			var inputBuffer = new Buffer(compressedUint8Array.length);
 			for (i = 0; i < compressedSize; i++) {
 				inputBuffer[i] = compressedUint8Array[i];
@@ -263,22 +337,363 @@
 			var written = LZ4.uncompress(
 				inputBuffer,
 				outputBuffer);
-			console.assert(written === uncompressedSize);
+			console.assert(written === uncompressedSize, "lz4 mismatch: " + written + " <-> " + uncompressedSize);
 			var uncompressedArrayBuffer = new ArrayBuffer(uncompressedSize);
 			var uncompressedUint8Array = new Uint8Array(uncompressedArrayBuffer);
 			for (i = 0; i < uncompressedSize; i++) {
 				uncompressedUint8Array[i] = outputBuffer[i];
 			}
-			var outputReader = new BinaryReader(uncompressedArrayBuffer);
-			this.mPosition += compressedSize;
-			return outputReader;
+			outputReader = new BinaryReader(uncompressedArrayBuffer);
+		}
+		this.mPosition += compressedSize;
+		return outputReader;
+	};
+
+	var AssetBundle = function (arrayBuffer) {
+		var bytes = new Uint8Array(arrayBuffer);
+		var reader = new BinaryReader(bytes);
+		this.mSigniture = reader.getString();
+		this.mFormat = reader.getU4();
+		this.mUnityVersion = reader.getString();
+		this.mGeneratorVersion = reader.getString();
+
+		if (this.mSigniture !== 'UnityFS') {
+			alert("UnityFS以外非対応ごめん!");
+			return;
+		}
+
+		this.mFileSize = reader.getU8Low();
+		console.log('signiture: ' + this.mSigniture + '\nformat: ' + this.mFormat + '\nunityVersion: ' + this.mUnityVersion + '\ngeneratorVersion: ' + this.mGeneratorVersion + '\nfileSize: ' + this.mFileSize + '\n');
+
+		this.mHeader = new AssetBundleHeader(reader.uncompressLz4());
+		var bodyBytes = this.mHeader.uncompressAll(reader);
+
+		//// -------------------- ここからなんちゃって実装 ---------------------------------------
+		var t0 = new Date().getTime();
+		// バイナリ保存
+		var blob = new Blob([bodyBytes]);
+		var url = URL.createObjectURL(blob);
+		document.getElementById('download').setAttribute('href', url);
+		var t1 = new Date().getTime();
+		console.log('make download data : ' + (t1 - t0) + ' msec.');
+
+		// 文字列化
+		var strings = Util.extractStrings(bodyBytes);
+		var t2 = new Date().getTime();
+		console.log('extractStrings : ' + (t2 - t1) + ' msec.');
+		// パスくさいものだけ残して削除
+		var dst = 0;
+		var i;
+		for (i = 0; i < strings.length; i++) {
+			strings[dst] = strings[i];
+			if (Util.isPath(strings[i])) {
+				dst++;
+			}
+		}
+		strings.length = dst;
+		var t3 = new Date().getTime();
+		console.log('remove non path : ' + (t3 - t2) + ' msec. dst=' + dst);
+
+		// 重複削除のためにソート
+		strings.sort();
+		var t4 = new Date().getTime();
+		console.log('sorting strings : ' + (t4 - t3) + ' msec.');
+
+		// 重複削除
+		var prev = null;
+		dst = 0;
+		for (i = 0; i < strings.length; i++) {
+			strings[dst] = strings[i];
+			if (strings[i] != prev) {
+				dst++;
+			}
+			prev = strings[i];
+		}
+		strings.length = dst;
+		var t5 = new Date().getTime();
+		console.log('unique : ' + (t5 - t4) + ' msec. dst=' + dst);
+
+		// 結果表示
+		var table = document.getElementById('table');
+		while (table.firstChild) { // 掃除
+			table.removeChild(table.firstChild);
+		}
+
+		for (i = 0; i < strings.length; i++) {
+			var tr = document.createElement('tr');
+			var td = document.createElement('td');
+			td.innerText = strings[i];
+			tr.appendChild(td);
+			table.appendChild(tr);
+		}
+		var t6 = new Date().getTime();
+		console.log('show results : ' + (t6 - t5) + ' msec');
+		//// -------------------- ここまでなんちゃって実装 ---------------------------------------
+		// アセット展開(実験中)
+		this.mCabs = [];
+		for (i = 0; i < this.mHeader.getCabCount(); i++) {
+			var cab = new Cab(bodyBytes, this.mHeader.getCabOffset(i));
+			this.mCabs.push(cab);
+		}
+	};
+	var Cab = function (bytes, offset) {
+		var reader = new BinaryReader(bytes, offset);
+		this.mMetadataSize = reader.getU4();
+		this.mSize = reader.getU4();
+		this.mFormat = reader.getU4();
+		this.mOffset = reader.getU4();
+		var i;
+		if (this.mFormat >= 9) {
+			var endian = reader.getU4();
+			reader.setIsLittleEndian(endian === 0); // 0ならリトルエンディアン
+		}
+		this.mGeneratorVersion = reader.getString();
+		this.mTargetPlatform = reader.getU4();
+		console.log('[cab]\nmetadataSize: ' + this.mMetadataSize + '\n' + 'size: ' + this.mSize + '\n' + 'format: ' + this.mFormat + '\n' + 'offset: ' + this.mOffset + '\n' + 'generatorVersion: ' + this.mGeneratorVersion + '\n' + 'targetPlatform: ' + this.mTargetPlatform + '\n');
+		this.mTypes = [];
+		if (this.mFormat >= 17) {
+			var hasTypeTreeFlag = reader.getU1();
+			var hasTypeTrees = (hasTypeTreeFlag !== 0);
+			var typeCount = reader.getU4();
+			console.log('hasTypeTreeFlag: ' + hasTypeTreeFlag + '\nhasTypeTrees: ' + hasTypeTrees + '\ntypeCount: ' + typeCount);
+			for (i = 0; i < typeCount; i++) {
+				var type = {};
+				type.classId = reader.getU4();
+				reader.skip(1);
+				type.scriptId = reader.getU2();
+				type.hash = ((type.classId & 0x80000000) || (type.classId == 114)) ? reader.readAsHexNumber(32) : reader.readAsHexNumber(16);
+				console.log('classId: ' + type.classId + '\nscriptId: ' + type.scriptId + '\nhash: ' + type.hash);
+				if (hasTypeTrees) {
+					type.typeTree = new TypeTree(reader);
+				}
+				this.mTypes.push(type);
+			}
+		} else if (this.mFormat >= 13) {
+			var hasTypeTreeFlag = reader.getU1();
+			var hasTypeTrees = (hasTypeTreeFlag !== 0);
+			var typeCount = reader.getU4();
+			console.log('hasTypeTreeFlag: ' + hasTypeTreeFlag + '\nhasTypeTrees: ' + hasTypeTrees + '\ntypeCount: ' + typeCount);
+			for (i = 0; i < typeCount; i++) {
+				var type = {};
+				type.classId = reader.getU4();
+				type.hash = (type.classId & 0x80000000) ? reader.readAsHexNumber(32) : reader.readAsHexNumber(16);
+				console.log('classId: ' + type.classId + '\nhash: ' + type.hash);
+				if (hasTypeTrees) {
+					type.typeTree = new TypeTree(reader);
+				}
+				this.mTypes.push(type);
+			}
+		}
+		var objectIdIsLong = (this.mFormat >= 14) ||
+			((this.mFormat >= 7) && (this.mFormat <= 13) && (reader.getU4() !== 0));
+		var objectCount = reader.getU4();
+		this.mObjects = [];
+		console.log('objectIdIsLong: ' + objectIdIsLong + '\nobjectCount: ' + objectCount);
+		for (i = 0; i < objectCount; i++) {
+			var object = new Object(reader, this.mFormat, this.mOffset, objectIdIsLong, this.mTypes);
+			this.mObjects.push(object);
+		}
+
+		this.mAddIds = []; // これなんなの?
+		if (this.mFormat >= 11) {
+			var idCount = reader.getU4()
+			console.log('idCount: ' + idCount);
+			for (i = 0; i < idCount; i++) {
+				if (this.mFormat >= 14) {
+					reader.align(4);
+				}
+				this.mAddIds.push([objectIdIsLong ? reader.getU8AsHexNumber() : reader.getU4(), reader.getU4()]);
+			}
+		}
+
+		this.mReferences = []; // 依存関係?
+		if (this.mFormat >= 6) {
+			var referenceCount = reader.getU4();
+			console.log('referenceCount: ' + referenceCount);
+			for (i = 0; i < referenceCount; i++) {
+				var reference = {
+					path: reader.string(),
+					guid: reader.readAsHexNumber(16),
+					type: reader.getU4(),
+					filePath: reader.string()
+				};
+				console.log('[reference]\npath: ' + reference.path + '\nguid: ' + reference.guid + '\ntype: ' + reference.type + '\nfilePath: ' + reference.filePath);
+				mReferences.push(reference);
+			}
+		}
+	};
+	var Object = function (reader, format, cabOffset, objectIdIsLong, types) {
+		if (format >= 14) {
+			reader.align(4);
+		}
+		this.mPathId = objectIdIsLong ? reader.getU8AsHexNumber() : reader.getU4();
+		this.mOffset = reader.getU4();
+		this.mSize = reader.getU4();
+
+		this.mDestroyed = false;
+		if (format >= 17) {
+			this.mClassIndex = reader.getU4();
+			this.mTypeId = null;
+			this.mClassId = null;
+		} else {
+			this.mClassIndex = null;
+			this.mTypeId = reader.getU4();
+			this.mClassId = reader.getU2();
+			if (format <= 10) {
+				this.mDestroyed = (reader.getU2() !== 0);
+			}
+		}
+		if ((format >= 11) && (format <= 16)) {
+			reader.skip(2);
+		}
+		if ((format >= 15) && (format <= 16)) {
+			reader.skip(1);
+		}
+		var posBack = reader.getPosition();
+		reader.setPosition(cabOffset + this.mOffset);
+		var that = this;
+
+		var processValue = function (reader, types) {
+			var type, i;
+			if (typeof that.mClassIndex !== 'undefined') {
+				type = types[that.mClassIndex];
+			} else if (typeof that.mClassId !== 'undefined') {
+				for (i = 0; i < types.length; i++) {
+					if (types[i].classId === that.mClassId) {
+						type = types[i];
+						break;
+					}
+				}
+			}
+			// とりあえずテキストとして読めればテキストとして読み出し、読めなければ16進で読み出す
+			var pos = reader.getPosition();
+			var string = reader.getString();
+			if ((reader.getPosition() - pos) == that.mSize) { // 文字列と思われる
+				return string;
+			} else {
+				reader.setPosition(pos);
+				return reader.readAsHexNumber(that.mSize);
+			}
 		};
+
+		this.mValue = processValue(reader, this, types);
+		console.log('[object]\nasset_offset: ' + (cabOffset + this.mOffset) + '\nsize: ' + this.mSize + '\npathId: ' + this.mPathId + '\noffset: ' + this.mOffset + '\nsize: ' + this.mSize);
+		if (this.mValue.length < 256) {
+			console.log('[objectValue]\n' + this.mValue);
+		}
+		reader.setPosition(posBack);
+	};
+	var TypeTree = function (reader) {
+		var nodeCount = reader.getU4();
+		var bufferSize = reader.getU4();
+		console.log('[tree] nodeCount: ' + nodeCount + '\nbufferSize: ' + bufferSize);
+		this.mNodes = [];
+		var i;
+		for (i = 0; i < nodeCount; i++) {
+			var node = {
+				version: reader.getU2(),
+				depth: reader.getU1(),
+				isArray: (reader.getU1() !== 0),
+				type: reader.getU4(),
+				name: reader.getU4(),
+				size: reader.getU4(),
+				index: reader.getU4(),
+				flags: reader.getU4()
+			};
+			//alert('[node]\nversion: ' + node.version + '\ndepth: ' + node.depth + '\nisArray: ' + node.isArray + '\ntype: ' + node.type + '\nname: ' + node.name + '\nsize: ' + node.size + "\nindex: " + node.index + "\nflags: " + node.flags);
+			this.mNodes.push(node);
+		}
+		// 文字列バッファ内の文字列でオフセットを置換
+		var bufferBegin = reader.getPosition();
+		for (i = 0; i < nodeCount; i++) {
+			var node = this.mNodes[i];
+			if ((node.type & 0x80000000) === 0) {
+				reader.setPosition(bufferBegin + node.type)
+				node.type = reader.getString();
+			}
+			if ((node.name & 0x80000000) === 0) {
+				reader.setPosition(bufferBegin + node.name)
+				node.name = reader.getString();
+			}
+			console.log('[node]\nversion: ' + node.version + '\ndepth: ' + node.depth + '\nisArray: ' + node.isArray + '\ntype: ' + node.type + '\nname: ' + node.name + '\nsize: ' + node.size + "\nindex: " + node.index + "\nflags: " + node.flags);
+		}
+		reader.setPosition(bufferBegin);
+		reader.skip(bufferSize);
+	};
+	var AssetBundleHeader = function (reader) {
+		// ヘッダバイナリ保存
+		var blob = new Blob([reader.getBytes()]);
+		var url = URL.createObjectURL(blob);
+		document.getElementById('downloadHeader').setAttribute('href', url);
+
+		this.mGuid = reader.readAsHexNumber(16); // これguidじゃなくてhashなんじゃないかなあ。
+		console.log('headerSize: ' + reader.getBytes().length + '\nguid: ' + this.mGuid);
+		var lz4BlockCount = reader.getU4();
+		console.log('LZ4 blockCount: ' + this.mLz4BlockCount);
+		this.mLz4Blocks = [];
+		this.mUncompressedSizeTotal = 0;
+		var i;
+		for (i = 0; i < lz4BlockCount; i++) {
+			var block = {};
+			block.uncompressedSize = reader.getU4();
+			block.compressedSize = reader.getU4();
+			block.flags = reader.getU2();
+			this.mLz4Blocks.push(block);
+			this.mUncompressedSizeTotal += block.uncompressedSize;
+
+			console.log('[LZ4 block]\nuncompressed: ' + block.uncompressedSize + '\ncompressed:' + block.compressedSize + '\nflags:' + block.flags);
+		}
+
+		var cabCount = reader.getU4();
+		console.log("cabCount : " + cabCount);
+		this.mCabs = [];
+		for (i = 0; i < cabCount; i++) {
+			var cab = {};
+			cab.offset = reader.getU8Low();
+			cab.size = reader.getU8Low();
+			cab.status = reader.getU4();
+			cab.name = reader.getString();
+			this.mCabs.push(cab);
+
+			console.log('[cab]\noffset: ' + cab.offset + '\nsize: ' + cab.size + '\nstatus: ' + cab.status + '\nname: ' + cab.name);
+		}
+	};
+	AssetBundleHeader.prototype.uncompressAll = function (parentReader) {
+		// 全展開する
+		// アセットごとに別LZ4ブロックになっているとばかり思っていたが、複数アセットが1ブロック内に入っているのでそうではなさそう。
+		// 「未展開ブロックのデータが求められたらそこを展開する」という処理をすれば必要な場所だけ展開することができると思うが、
+		// なんでそんな面倒なことを...
+		var t0 = new Date().getTime();
+		var totalBytes = new Uint8Array(this.mUncompressedSizeTotal);
+		var pos = 0;
+		var i;
+		for (i = 0; i < this.mLz4Blocks.length; i++) {
+			var block = this.mLz4Blocks[i];
+			var reader = parentReader.uncompressLz4(
+				block.compressedSize,
+				block.uncompressedSize,
+				block.flags);
+			var bytes = reader.getBytes();
+			var length = bytes.length;
+			totalBytes.set(bytes, pos);
+			pos += length;
+		}
+		var t1 = new Date().getTime();
+		console.log('AssetBundleHeader.uncompressAll : ' + (t1 - t0) + ' msec.');
+		return totalBytes;
+	};
+	AssetBundleHeader.prototype.getCabCount = function () {
+		return this.mCabs.length;
+	};
+	AssetBundleHeader.prototype.getCabOffset = function (cabIndex) {
+		return this.mCabs[cabIndex].offset;
+	};
+
+	(function main() {
 		var reader = new FileReader();
+		var assetBundle;
 		reader.onload = function (event) {
-			var arrayBuffer = event.target.result;
-			var bytes = new Uint8Array(arrayBuffer);
-			var reader = new BinaryReader(bytes);
-			processAssetBundle(reader);
+			assetBundle = new AssetBundle(event.target.result);
 		};
 		reader.onabort = function (file) {
 			alert(file.name + ' aboarted.');
@@ -303,393 +718,6 @@
 		document.getElementById('file').addEventListener('change', onFileSelect, false);
 		document.getElementById('body').addEventListener('dragover', onDragOver, false);
 		document.getElementById('body').addEventListener('drop', onDrop, false);
-
-		var processAssetBundle = function (reader) {
-			var t0 = new Date().getTime();
-
-			var signiture = reader.getString();
-			var format = reader.getU4();
-			var unityVersion = reader.getString();
-			var generatorVersion = reader.getString();
-
-			if (signiture !== 'UnityFS') {
-				alert("UnityFS以外非対応ごめん!");
-				return;
-			}
-
-			var fileSize = reader.getU8Low();
-			console.log('signiture: ' + signiture + '\nformat: ' + format + '\nunityVersion: ' + unityVersion + '\ngeneratorVersion: ' + generatorVersion + '\nfileSize: ' + fileSize + '\n');
-
-			var headerReader = reader.uncompressLz4();
-			var guid = headerReader.readAsHexNumber(16);
-			//			alert('guid: ' + guid);
-			var blockCount = headerReader.getU4();
-			var blocks = [];
-			var i;
-			var uncompressedSizeSum = 0;
-			for (i = 0; i < blockCount; i++) {
-				var uncompressedSize = headerReader.getU4();
-				uncompressedSizeSum += uncompressedSize;
-				var compressedSize = headerReader.getU4();
-				var flags = headerReader.getU2();
-				var block = {
-					uncompressedSize: uncompressedSize,
-					compressedSize: compressedSize,
-					flags: flags
-				};
-				//alert(block.uncompressedSize + " " + block.compressedSize + " " + block.flags);
-				blocks.push(block);
-			}
-			var assetBlocks = [];
-			var assetBlockCount = headerReader.getU4();
-			for (i = 0; i < assetBlockCount; i++) {
-				var offset = headerReader.getU8Low();
-				var size = headerReader.getU8Low();
-				var status = headerReader.getU4();
-				var name = headerReader.getString();
-				var assetBlock = {
-					offset: offset,
-					size: size,
-					status: status,
-					name: name
-				};
-				//				alert("asset: " + offset + " " + size + " " + status + " " + name);
-				assetBlocks.push(assetBlock);
-			}
-
-			var t1 = new Date().getTime();
-			console.log('read blocks : ' + (t1 - t0) + ' msec.');
-			// 全展開する。マジで?アセットごとに別ブロックなんじゃないの?思ったのと違うよ?
-			var bodyBytes = new Uint8Array(uncompressedSizeSum);
-			var bodyBytePos = 0;
-			for (i = 0; i < blockCount; i++) {
-				var blockReader = reader.uncompressLz4(
-					blocks[i].compressedSize,
-					blocks[i].uncompressedSize,
-					blocks[i].flags);
-				var blockBytes = blockReader.getBytes();
-				var blockLength = blockBytes.length;
-				bodyBytes.set(blockBytes, bodyBytePos);
-				bodyBytePos += blockLength;
-			}
-			var t2 = new Date().getTime();
-			console.log('uncompress : ' + (t2 - t1) + ' msec.');
-			// バイナリ保存
-			var blob = new Blob([bodyBytes]);
-			var url = URL.createObjectURL(blob);
-			document.getElementById('download').setAttribute('href', url);
-			var t3 = new Date().getTime();
-			console.log('make download data : ' + (t3 - t2) + ' msec.');
-
-			// 文字列化
-			var strings = extractStrings(bodyBytes);
-			var t4 = new Date().getTime();
-			console.log('extractStrings : ' + (t4 - t3) + ' msec.');
-			// パスくさいものだけ残して削除
-			var dst = 0;
-			for (i = 0; i < strings.length; i++) {
-				strings[dst] = strings[i];
-				if (isPath(strings[i])) {
-					dst++;
-				}
-			}
-			strings.length = dst;
-			var t5 = new Date().getTime();
-			console.log('remove non path : ' + (t5 - t4) + ' msec. dst=' + dst);
-
-			// 重複削除のためにソート
-			strings.sort();
-			var t6 = new Date().getTime();
-			console.log('sorting strings : ' + (t6 - t5) + ' msec.');
-
-			// 重複削除
-			var prev = null;
-			dst = 0;
-			for (i = 0; i < strings.length; i++) {
-				strings[dst] = strings[i];
-				if (strings[i] != prev) {
-					dst++;
-				}
-				prev = strings[i];
-			}
-			strings.length = dst;
-			var t7 = new Date().getTime();
-			console.log('unique : ' + (t7 - t6) + ' msec. dst=' + dst);
-
-			// 結果表示
-			var table = document.getElementById('table');
-			while (table.firstChild) { // 掃除
-				table.removeChild(table.firstChild);
-			}
-
-			for (i = 0; i < strings.length; i++) {
-				//				console.log('path: ' + strings[i]);
-
-				var tr = document.createElement('tr');
-				var td = document.createElement('td');
-				td.innerText = strings[i];
-				tr.appendChild(td);
-				table.appendChild(tr);
-			}
-			var t8 = new Date().getTime();
-			console.log('show results : ' + (t8 - t7) + ' msec');
-			return; // この先は工事中
-
-			// アセット展開
-			var assets = [];
-			for (i = 0; i < assetBlockCount; i++) {
-				var assetReader = new BinaryReader(bodyBytes, assetBlocks[i].offset);
-				var asset = processAsset(assetReader);
-				assets.push(asset);
-			}
-		};
-		var isPath = function (str) {
-			// [a-zA-Z0-9_./]のみで構成されていればtrueを返す
-			var i, c, ok;
-			var periodExists = false;
-			var slashExists = false;
-			for (i = 0; i < str.length; i++) {
-				c = str.charCodeAt(i);
-				var isSmall = (c >= 'a'.charCodeAt(0)) && (c <= 'z'.charCodeAt(0));
-				var isBig = (c >= 'A'.charCodeAt(0)) && (c <= 'Z'.charCodeAt(0));
-				var isDigit = (c >= '0'.charCodeAt(0)) && (c <= '9'.charCodeAt(0));
-				var tmpPeriodExists = (c === '.'.charCodeAt(0));
-				var tmpSlashExists = (c === '/'.charCodeAt(0));
-				var isOtherValid = (c === '_'.charCodeAt(0));
-				if (tmpPeriodExists) {
-					periodExists = true;
-				}
-				if (tmpSlashExists) {
-					slashExists = true;
-				}
-				if (!isSmall && !isBig && !isDigit && !tmpPeriodExists && !tmpSlashExists && !isOtherValid) {
-					return false;
-				}
-			}
-			return periodExists && slashExists; // ピリオドとスラッシュが最低一個はないとパスとは認めないが例外はありそうだなあ
-		};
-		var extractStrings = function (bytes) {
-			var c0, c1, c2, c3;
-			var ret = [];
-			var str = "";
-			var i = 0;
-			while (i < bytes.length) {
-				c0 = bytes[i];
-				if ((i + 1) < bytes.length) {
-					c1 = bytes[i + 1];
-				} else {
-					c1 = 0;
-				}
-				if ((i + 2) < bytes.length) {
-					c2 = bytes[i + 2];
-				} else {
-					c2 = 0;
-				}
-				if ((i + 3) < bytes.length) {
-					c3 = bytes[i + 3];
-				} else {
-					c3 = 0;
-				}
-
-				if (c0 < 0x20) { // 制御文字とみなして文字列終了
-					if (str.length > 0) {
-						ret.push(str);
-						str = "";
-					}
-					i += 1;
-				} else if (c0 < 0x80) { // 通常ASCII
-					str += String.fromCharCode(c0);
-					i += 1;
-				} else if (c0 < 0xc2) { // 二文字目以降のはず。UTF8ならありえないが、バイナリならありうるので、とりあえず文字列終了
-					if (str.length > 0) {
-						ret.push(str);
-						str = "";
-					}
-					i += 1;
-				} else if (c0 < 0xe0) { // 2バイト文字
-					str += String.fromCharCode(((c0 & 0x1F) << 6) | (c1 & 0x3F));
-					i += 2;
-				} else if (c0 < 0xf0) { // 3バイト文字
-					str += String.fromCharCode(((c0 & 0x0F) << 12) |
-						((c1 & 0x3F) << 6) |
-						((c2 & 0x3F) << 0));
-					i += 3;
-				} else if (c0 < 0xf8) { // 4バイト文字
-					str += String.fromCharCode(((c0 & 0x07) << 18) |
-						((c1 & 0x3F) << 12) |
-						((c2 & 0x3F) << 6) |
-						((c3 & 0x3F) << 0));
-					i += 4;
-				} else { // UTF-8ではありえないので1文字飛ばす
-					if (str.length > 0) {
-						ret.push(str);
-						str = "";
-					}
-					i += 1;
-				}
-			}
-			return ret;
-		};
-		var processAsset = function (reader) {
-			var metadataSize = reader.getU4();
-			var size = reader.getU4();
-			var format = reader.getU4();
-			var offset = reader.getU4();
-			var i;
-			if (format >= 9) {
-				var endian = reader.getU4();
-				reader.setIsLittleEndian(endian === 0); // 0ならリトルエンディアン
-			}
-			var generatorVersion = reader.getString();
-			var targetPlatform = reader.getU4();
-			console.log('[assset]\nmetadataSize: ' + metadataSize + '\n' + 'size: ' + size + '\n' + 'format: ' + format + '\n' + 'offset: ' + offset + '\n' + 'generatorVersion: ' + generatorVersion + '\n' + 'targetPlatform: ' + targetPlatform + '\n');
-			var assetTypes = [];
-			if (format >= 17) {
-				var hasTypeTreeFlag = reader.getU1();
-				var hasTypeTrees = (hasTypeTreeFlag !== 0);
-				var typeCount = reader.getU4();
-				console.log('hasTypeTreeFlag: ' + hasTypeTreeFlag + '\nhasTypeTrees: ' + hasTypeTrees + '\ntypeCount: ' + typeCount);
-				for (i = 0; i < typeCount; i++) {
-					var type = {};
-					type.classId = reader.getU4();
-					reader.skip(1);
-					type.scriptId = reader.getU2();
-					type.hash = ((type.classId & 0x80000000) || (type.classId == 114)) ? reader.readAsHexNumber(32) : reader.readAsHexNumber(16);
-					console.log('classId: ' + type.classId + '\nscriptId: ' + type.scriptId + '\nhash: ' + type.hash);
-					if (hasTypeTrees) {
-						type.typeTree = processTypeTree(reader);
-					}
-					assetTypes.push(type);
-				}
-			} else if (format >= 13) {
-				var hasTypeTreeFlag = reader.getU1();
-				var hasTypeTrees = (hasTypeTreeFlag !== 0);
-				var typeCount = reader.getU4();
-				console.log('hasTypeTreeFlag: ' + hasTypeTreeFlag + '\nhasTypeTrees: ' + hasTypeTrees + '\ntypeCount: ' + typeCount);
-				for (i = 0; i < typeCount; i++) {
-					var type = {};
-					type.classId = reader.getU4();
-					type.hash = (type.classId & 0x80000000) ? reader.readAsHexNumber(32) : reader.readAsHexNumber(16);
-					console.log('classId: ' + type.classId + '\nhash: ' + type.hash);
-					if (hasTypeTrees) {
-						type.typeTree = processTypeTree(reader);
-					}
-					assetTypes.push(type);
-				}
-			}
-			var objectIdIsLong = (format >= 14) ||
-				((format >= 7) && (format <= 13) && (reader.getU4() !== 0));
-			var objects = [];
-			var objectCount = reader.getU4();
-			console.log('objectIdIsLong: ' + objectIdIsLong + '\nobjectCount: ' + objectCount);
-			for (i = 0; i < objectCount; i++) {
-				var object = {};
-				if (format >= 14) {
-					reader.align(4);
-				}
-				object.pathId = objectIdIsLong ? reader.getU8AsHexNumber() : reader.getU4();
-				object.offset = reader.getU4();
-				object.size = reader.getU4();
-				console.log('pathId: ' + object.pathId + '\noffset: ' + object.offset + '\nsize: ' + object.size);
-
-				object.destroyed = false;
-				if (format >= 17) {
-					object.classIndex = reader.getU4();
-					object.typeId = null;
-					objet.classId = null;
-				} else {
-					object.clasIndex = null;
-					object.typeId = reader.getU4();
-					object.classId = reader.getU2();
-					if (format <= 10) {
-						object.destroyed = (reader.getU2() !== 0);
-					}
-				}
-				if ((format >= 11) && (format <= 16)) {
-					reader.skip(2);
-				}
-				if ((format >= 15) && (format <= 16)) {
-					reader.skip(1);
-				}
-				var posBack = reader.getPosition();
-				reader.setPosition(offset + object.offset);
-				console.log('[object]\nasset_offset: ' + (offset + object.offset) + '\nsize: ' + object.size);
-				objects.value = processObjectValue(reader);
-				reader.skip(object.size); // とりあえず読み捨て
-				reader.setPosition(posBack);
-			}
-
-			var addIds = [];
-			if (format >= 11) {
-				var idCount = reader.getU4()
-				console.log('idCount: ' + idCount);
-				for (i = 0; i < idCount; i++) {
-					if (format >= 14) {
-						reader.align(4);
-					}
-					addIds.push([objectIdIsLong ? reader.getU8AsHexNumber() : reader.getU4(), reader.getU4()]);
-				}
-			}
-
-			var reerences = [];
-			if (format >= 6) {
-				var referenceCount = reader.getU4();
-				console.log('referenceCount: ' + referenceCount);
-				for (i = 0; i < referenceCount; i++) {
-					var reference = {
-						path: reader.string(),
-						guid: reader.readAsHexNumber(16),
-						type: reader.getU4(),
-						filePath: reader.string()
-					};
-					console.log('[reference]\npath: ' + reference.path + '\nguid: ' + reference.guid + '\ntype: ' + reference.type + '\nfilePath: ' + reference.filePath);
-					references.push(reference);
-				}
-			}
-		};
-		var processObjectValue = function (reader) {
-
-		};
-		var processTypeTree = function (reader) {
-			var nodes = [];
-			var nodeCount = reader.getU4();
-			var bufferSize = reader.getU4();
-			console.log('[tree] nodeCount: ' + nodeCount + '\nbufferSize: ' + bufferSize);
-			var i;
-			for (i = 0; i < nodeCount; i++) {
-				var node = {
-					version: reader.getU2(),
-					depth: reader.getU1(),
-					isArray: (reader.getU1() !== 0),
-					type: reader.getU4(),
-					name: reader.getU4(),
-					size: reader.getU4(),
-					index: reader.getU4(),
-					flags: reader.getU4()
-				};
-				//alert('[node]\nversion: ' + node.version + '\ndepth: ' + node.depth + '\nisArray: ' + node.isArray + '\ntype: ' + node.type + '\nname: ' + node.name + '\nsize: ' + node.size + "\nindex: " + node.index + "\nflags: " + node.flags);
-				nodes.push(node);
-			}
-			var bufferBegin = reader.getPosition();
-			for (i = 0; i < nodeCount; i++) {
-				var node = nodes[i];
-				if ((node.type & 0x80000000) === 0) {
-					reader.setPosition(bufferBegin + node.type)
-					node.type = reader.getString();
-				}
-				if ((node.name & 0x80000000) === 0) {
-					reader.setPosition(bufferBegin + node.name)
-					node.name = reader.getString();
-				}
-				console.log('[node]\nversion: ' + node.version + '\ndepth: ' + node.depth + '\nisArray: ' + node.isArray + '\ntype: ' + node.type + '\nname: ' + node.name + '\nsize: ' + node.size + "\nindex: " + node.index + "\nflags: " + node.flags);
-			}
-			reader.setPosition(bufferBegin);
-			reader.skip(bufferSize);
-		};
-
 	}());
-
 </script>
-
-
 </html>
