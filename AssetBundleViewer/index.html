@@ -23,7 +23,8 @@
 
 	<h2>使い方</h2>
 	<p>
-		AssetBundleファイルをドロップするか、上の「ファイルを選択」ボタンでファイルを選ぶ
+		AssetBundleファイルをドロップするか、上の「ファイルを選択」ボタンでファイルを選ぶ。
+		ドロップする時は、何か字がある所にしてください。何もない所にドロップするとなんか動きません。
 	</p>
 
 	<h2>実装済み機能</h2>
@@ -33,6 +34,8 @@
 
 	<h2>既知の不具合</h2>
 	<ul>
+		<li>50MBとかあるAssetBundleをつっこむと15秒くらいブラウザが凍って不安になる
+		<li>何もないところにドロップすると反応せずにファイルがダウンロードされてしまう
 		<li>アセットパスらしきものを抜いているだけなので、ピリオドやスラッシュがほどよく混ざっていると変なものもパスとして表示してしまう
 		<li>日本語やスペース混ざりのファイル名はパス扱いされず出ない
 	</ul>
@@ -299,6 +302,8 @@
 		document.getElementById('body').addEventListener('drop', onDrop, false);
 
 		var processAssetBundle = function (reader) {
+			var t0 = new Date().getTime();
+
 			var signiture = reader.getString();
 			var format = reader.getU4();
 			var unityVersion = reader.getString();
@@ -349,6 +354,8 @@
 				assetBlocks.push(assetBlock);
 			}
 
+			var t1 = new Date().getTime();
+			console.log('read blocks : ' + (t1 - t0) + ' msec.');
 			// 全展開する。マジで?アセットごとに別ブロックなんじゃないの?思ったのと違うよ?
 			var bodyBytes = new Uint8Array(uncompressedSizeSum);
 			var bodyBytePos = 0;
@@ -362,30 +369,69 @@
 				bodyBytes.set(blockBytes, bodyBytePos);
 				bodyBytePos += blockLength;
 			}
+			var t2 = new Date().getTime();
+			console.log('uncompress : ' + (t2 - t1) + ' msec.');
 			// バイナリ保存
 			var blob = new Blob([bodyBytes]);
 			var url = URL.createObjectURL(blob);
 			document.getElementById('download').setAttribute('href', url);
+			var t3 = new Date().getTime();
+			console.log('make download data : ' + (t3 - t2) + ' msec.');
 
 			// 文字列化
 			var strings = extractStrings(bodyBytes);
-			// ここからパスくさいのを探す
+			var t4 = new Date().getTime();
+			console.log('extractStrings : ' + (t4 - t3) + ' msec.');
+			// パスくさいものだけ残して削除
+			var dst = 0;
+			for (i = 0; i < strings.length; i++) {
+				strings[dst] = strings[i];
+				if (isPath(strings[i])) {
+					dst++;
+				}
+			}
+			strings.length = dst;
+			var t5 = new Date().getTime();
+			console.log('remove non path : ' + (t5 - t4) + ' msec. dst=' + dst);
+
+			// 重複削除のためにソート
+			strings.sort();
+			var t6 = new Date().getTime();
+			console.log('sorting strings : ' + (t6 - t5) + ' msec.');
+
+			// 重複削除
+			var prev = null;
+			dst = 0;
+			for (i = 0; i < strings.length; i++) {
+				strings[dst] = strings[i];
+				if (strings[i] != prev)
+				{
+					dst++;
+				}
+				prev = strings[i];
+			}
+			strings.length = dst;
+			var t7 = new Date().getTime();
+			console.log('unique : ' + (t7 - t6) + ' msec. dst=' + dst);
+
+			// 結果表示
 			var table = document.getElementById('table');
 			while (table.firstChild) { // 掃除
 				table.removeChild(table.firstChild);
 			}
-			for (i = 0; i < strings.length; i++) {
-				if (isPath(strings[i])) {
-					console.log('path: ' + strings[i]);
 
-					var tr = document.createElement('tr');
-					var td = document.createElement('td');
-					td.innerText = strings[i];
-					tr.appendChild(td);
-					table.appendChild(tr);
-				}
+			for (i = 0; i < strings.length; i++) {
+//				console.log('path: ' + strings[i]);
+
+				var tr = document.createElement('tr');
+				var td = document.createElement('td');
+				td.innerText = strings[i];
+				tr.appendChild(td);
+				table.appendChild(tr);
 			}
-			return;
+			var t8 = new Date().getTime();
+			console.log('show results : ' + (t8 - t7) + ' msec');
+return; // この先は工事中
 
 			// アセット展開
 			var assets = [];
