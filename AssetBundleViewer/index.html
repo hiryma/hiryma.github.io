@@ -19,6 +19,7 @@
 	<h2>これは何か</h2>
 	<p>
 		UnityEditorを持っていない人でも、AssetBundleファイルに何が入っているかが見られるツール
+		<strong>AssetBundleの内部formatが上がった時に解析と対応作業が必要になるので、こういうものを自作するのは本来良くない。公式で用意して!!!</strong>
 	</p>
 
 	<h2>使い方</h2>
@@ -35,6 +36,7 @@
 	<h2>既知の不具合</h2>
 	<ul>
 		<li>50MBとかあるAssetBundleをつっこむと15秒くらいブラウザが凍って不安になる
+		<li>全量展開してるので、遅い上に、あまりデカいAssetBundleをつっこむとたぶんメモリ不足で止まるか落ちる
 		<li>何もないところにドロップすると反応せずにファイルがダウンロードされてしまう
 		<li>アセットパスらしきものを抜いているだけなので、ピリオドやスラッシュがほどよく混ざっていると変なものもパスとして表示してしまう
 		<li>日本語やスペース混ざりのファイル名はパス扱いされず出ない
@@ -55,9 +57,8 @@
 	<ul>
 		<li>AssetBundle解釈周りは<a
 				href="https://github.com/AnemoneStar/shibunyan">shibunyan</a>からの移植だが、面倒くさくなって解釈を途中までしかやっていない
-		<li>AssetBundleの内部formatが上がった時に解析と対応作業が必要になるので、こういうものを自作するのは本来良くない
 		<li>LZ4は<a
-				href="https://github.com/pierrec/node-lz4">pierrec/node-lz4</a>を使っているが、そのままだとブラウザで動かなかったので、よくわからないまま一部いじっている。
+				href="https://github.com/pierrec/node-lz4">pierrec/node-lz4</a>を使っているが、サンプル通りに使おうとしても動かなかった。requireって何やってんの?
 	</ul>
 
 	<h2>デバグ</h2>
