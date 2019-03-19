@@ -46,13 +46,14 @@
 		<li>ちゃんと解釈して名前が入っているとわかっている所を抜き出したい
 		<li>中に入っているデータの詳細をちゃんと表示した。例えば画像の解像度やフィルタ設定等
 		<li>画像は可能ならブラウザ上に表示したい
+		<li>見栄えがアレすぎるので多少はcss用意したい
 	</ul>
 
 	<hr>
 
 	<h2>実装メモ</h2>
 	<ul>
-		<li>元ネタは<a href="https://github.com/AnemoneStar/shibunyan">shibunyan</a>だが、面倒くさくなって解釈を途中までしかやっていない
+		<li>AssetBundle解釈周りは<a href="https://github.com/AnemoneStar/shibunyan">shibunyan</a>からの移植だが、面倒くさくなって解釈を途中までしかやっていない
 		<li>AssetBundleの内部formatが上がった時に解析と対応作業が必要になるので、こういうものを自作するのは本来良くない
 		<li>LZ4は<a href="https://github.com/pierrec/node-lz4">pierrec/node-lz4</a>を使っているが、そのままだとブラウザで動かなかったので、よくわからないまま一部いじっている。
 	</ul>
