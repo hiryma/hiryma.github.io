@@ -133,6 +133,7 @@
 		return ret;
 	};
 	Util.toHexDigit = function (zeroToFifteen) { //0-15のnumberを0-9,a-fに変換
+		console.assert((zeroToFifteen >= 0) && (zeroToFifteen <= 15));
 		var code;
 		switch (zeroToFifteen) {
 			case 0: code = '0'.charCodeAt(0); break;
