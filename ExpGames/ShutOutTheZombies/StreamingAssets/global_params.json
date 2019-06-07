@@ -1,0 +1,55 @@
+{
+	"goalLine": -5,
+	"deathLine": 100,
+	"lifeMax": 100,
+	"laneCountMax": 3,
+	"laneInterval": 10,
+	"cameras":[
+		{
+			"position":{
+				"x": 1.5,
+				"y": 10,
+				"z": -10
+			},
+			"target":{
+				"x": 0,
+				"y": 0,
+				"z": 5
+			}
+		},
+		{
+			"position":{
+				"x": 0,
+				"y": 10,
+				"z": -10
+			},
+			"target":{
+				"x": 0,
+				"y": 0,
+				"z": 5
+			}
+		},
+		{
+			"position":{
+				"x": 20,
+				"y": 10,
+				"z": 10
+			},
+			"target":{
+				"x": -20,
+				"y": 0,
+				"z": 10
+			}
+		}
+	],
+	"shutter":{
+		"defaultIsOpen":false,
+		"openSpeed":2,
+		"closeSpeed":4,
+		"openWidth":3
+	},
+	"enemy":{
+		"spawnPosition": 30,
+		"radius":0.5
+	}
+}
