@@ -1,15 +1,18 @@
 {
+	"stageCount": 8,
 	"goalLine": -5,
 	"deathLine": 100,
 	"lifeMax": 100,
 	"laneCountMax": 3,
-	"laneInterval": 10,
+	"laneInterval": 5.8,
+	"defaultLightAltitude": 50,
+	"defaultLightAzimuth": 330,
 	"cameras":[
 		{
 			"position":{
 				"x": 1.5,
-				"y": 10,
-				"z": -10
+				"y": 5,
+				"z": -5
 			},
 			"target":{
 				"x": 0,
@@ -44,12 +47,12 @@
 	],
 	"shutter":{
 		"defaultIsOpen":false,
-		"openSpeed":2,
-		"closeSpeed":4,
-		"openWidth":3
+		"openSpeed":20,
+		"closeSpeed":40,
+		"openWidth": 2
 	},
 	"enemy":{
-		"spawnPosition": 30,
+		"spawnPosition": 50,
 		"radius":0.5
 	}
 }

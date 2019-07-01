@@ -1,0 +1,49 @@
+{
+	"enemyPassDamage": 20,
+	"friendShutDamage": 20,
+	"endTime": 30,
+	"commands": [
+		{
+			"time": 0,
+			"lane": 0,
+			"enabled": "true",
+			"enemyPercent": "70",
+			"friendPercent": "30",
+			"speed": "10",
+			"interval": "10"
+		},
+		{
+			"time": 10,
+			"lane": 1,
+			"enabled": "true",
+			"enemyPercent": "30",
+			"friendPercent": "70",
+			"speed": "15",
+			"interval": "15"
+		},
+		{
+			"time": 15,
+			"lane": 0,
+			"enabled": "false"
+		},
+		{
+			"time": 20,
+			"lane": 2,
+			"enabled": "true",
+			"enemyPercent": "100",
+			"friendPercent": "0",
+			"speed": "20",
+			"interval": "20"
+		},
+		{
+			"time": 25,
+			"lane": 1,
+			"enabled": "false"
+		},
+		{
+			"time": 30,
+			"lane": 2,
+			"enabled": "false"
+		}
+	]
+}
