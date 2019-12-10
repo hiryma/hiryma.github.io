@@ -1996,7 +1996,7 @@ void main(){
 		Kayac.M34 = function () {
 		};
 
-		Kayac.M34.createM = function(m){
+		Kayac.M34.createM = function (m) {
 			var ret = new Kayac.M34();
 			ret.copyFrom(m);
 			return ret;
@@ -2070,11 +2070,11 @@ void main(){
 			this.m23 = m.m23;
 		};
 
-		Kayac.M34.prototype.mul = function(a){
+		Kayac.M34.prototype.mul = function (a) {
 			Kayac.M34.setMul(this, this, a);
 		};
 
-		Kayac.M34.prototype.setMul = function(a, b){
+		Kayac.M34.prototype.setMul = function (a, b) {
 			Kayac.M34.setMul(this, a, b);
 		};
 
@@ -2572,31 +2572,222 @@ void main(){
 		};
 
 		// MatrixStack
-		Kayac.MatrixStack = function(){
+		Kayac.MatrixStack = function () {
 			this.mStack = [];
 			var bottom = new Kayac.M34();
 			bottom.setIdentity();
 			this.mStack.push(bottom);
 			this.mTop = 0;
 		};
-		Kayac.MatrixStack.reset = function(){
+		Kayac.MatrixStack.reset = function () {
 			this.mTop = 0;
 		};
-		Kayac.MatrixStack.prototype.push = function(){
+		Kayac.MatrixStack.prototype.push = function () {
 			var top = this.mTop;
 			this.mStack[top + 1] = Kayac.M34.createM(this.mStack[top]);
 			this.mTop += 1;
 		};
-		Kayac.MatrixStack.prototype.pop = function(){
+		Kayac.MatrixStack.prototype.pop = function () {
 			console.assert(this.mTop > 0);
 			this.mTop -= 1;
 		};
-		Kayac.MatrixStack.prototype.pushMul = function(m){
+		Kayac.MatrixStack.prototype.pushMul = function (m) {
 			this.push();
 			this.mStack[this.mTop].mul(m);
 		};
-		Kayac.MatrixStack.prototype.top = function(){
+		Kayac.MatrixStack.prototype.top = function () {
 			return this.mStack[this.mTop];
+		};
+	</script>
+
+	<script>
+		var uiAtlas = {
+			"items": [
+				{
+					"name": "result_text_cyoubiun",
+					"width": 604,
+					"height": 220,
+					"x": 4,
+					"y": 4
+				},
+				{
+					"name": "result_text_cyubiun",
+					"width": 604,
+					"height": 220,
+					"x": 4,
+					"y": 228
+				},
+				{
+					"name": "result_text_cyubsyuuun",
+					"width": 604,
+					"height": 220,
+					"x": 4,
+					"y": 452
+				},
+				{
+					"name": "result_text_daibiun",
+					"width": 604,
+					"height": 220,
+					"x": 4,
+					"y": 676
+				},
+				{
+					"name": "result_text_daibsyuuun",
+					"width": 604,
+					"height": 220,
+					"x": 4,
+					"y": 900
+				},
+				{
+					"name": "result_text_keisoku",
+					"width": 604,
+					"height": 220,
+					"x": 4,
+					"y": 1124
+				},
+				{
+					"name": "result_text_syobiun",
+					"width": 604,
+					"height": 220,
+					"x": 4,
+					"y": 1348
+				},
+				{
+					"name": "result_text_syobsyuuun",
+					"width": 604,
+					"height": 220,
+					"x": 4,
+					"y": 1572
+				},
+				{
+					"name": "title",
+					"width": 570,
+					"height": 146,
+					"x": 4,
+					"y": 1796
+				},
+				{
+					"name": "text_setsumei",
+					"width": 536,
+					"height": 224,
+					"x": 4,
+					"y": 1946
+				},
+				{
+					"name": "result_text01",
+					"width": 450,
+					"height": 50,
+					"x": 544,
+					"y": 1946
+				},
+				{
+					"name": "result_text03",
+					"width": 418,
+					"height": 50,
+					"x": 4,
+					"y": 2174
+				},
+				{
+					"name": "text_middle",
+					"width": 416,
+					"height": 180,
+					"x": 426,
+					"y": 2174
+				},
+				{
+					"name": "btm_start",
+					"width": 410,
+					"height": 84,
+					"x": 4,
+					"y": 2358
+				},
+				{
+					"name": "result_text02",
+					"width": 350,
+					"height": 50,
+					"x": 418,
+					"y": 2358
+				},
+				{
+					"name": "btm_tap",
+					"width": 256,
+					"height": 256,
+					"x": 4,
+					"y": 2446
+				},
+				{
+					"name": "text_top",
+					"width": 256,
+					"height": 180,
+					"x": 264,
+					"y": 2446
+				},
+				{
+					"name": "result",
+					"width": 250,
+					"height": 58,
+					"x": 524,
+					"y": 2446
+				},
+				{
+					"name": "result_balance_beautiful",
+					"width": 218,
+					"height": 42,
+					"x": 778,
+					"y": 2446
+				},
+				{
+					"name": "result_balance",
+					"width": 180,
+					"height": 42,
+					"x": 4,
+					"y": 2706
+				},
+				{
+					"name": "result_size_medium",
+					"width": 160,
+					"height": 42,
+					"x": 188,
+					"y": 2706
+				},
+				{
+					"name": "result_size_small",
+					"width": 148,
+					"height": 42,
+					"x": 352,
+					"y": 2706
+				},
+				{
+					"name": "result_size_large",
+					"width": 138,
+					"height": 42,
+					"x": 504,
+					"y": 2706
+				},
+				{
+					"name": "result_balance_ugly",
+					"width": 126,
+					"height": 42,
+					"x": 646,
+					"y": 2706
+				},
+				{
+					"name": "result_size",
+					"width": 100,
+					"height": 42,
+					"x": 776,
+					"y": 2706
+				},
+				{
+					"name": "result_flame",
+					"width": 40,
+					"height": 40,
+					"x": 880,
+					"y": 2706
+				}
+			],
+			"width": 1024,
+			"height": 4096
 		};
 	</script>
 
@@ -2621,6 +2812,7 @@ void main(){
 			renderTexture: null,
 			renderTarget: null,
 			backgroundSprite: null,
+			bgSprites: null,
 			spriteRenderer: null,
 			down: false,
 			cursorPos: { x: 0, y: 0 },
@@ -2638,6 +2830,7 @@ void main(){
 			deltaTime: 0,
 			scene: Scene.Loading
 		};
+
 		var initializeGpu = function (canvas) {
 			canvas.width = canvasWidth;
 			canvas.height = canvasHeight;
@@ -2691,7 +2884,7 @@ void main(){
 			startLoad();
 		};
 		var startLoad = function () {
-			state.loadingTextureCount = 1;
+			state.loadingTextureCount = 2;
 			var onImageLoad = function (image) {
 				var arg = {
 					gpu: state.gpu,
@@ -2706,8 +2899,10 @@ void main(){
 				state.loadingTextureCount -= 1;
 			};
 			Kayac.startLoadImage('bg.png', 'bg', onImageLoad);
+			Kayac.startLoadImage('uiAtlas.png', 'uiAtlas', onImageLoad);
 		};
 		var startAfterLoad = function () {
+			// 背景
 			var backSprite = new Kayac.Sprite();
 			backSprite.name = 'background';
 			backSprite.texture = state.textures['bg'];
@@ -2715,7 +2910,9 @@ void main(){
 			backSprite.size = [canvasWidth, canvasHeight];
 			backSprite.texcoordScale = [2, 4 * canvasHeight / canvasWidth];
 			state.backgroundSprite = backSprite;
+
 			state.scene = Scene.Title;
+			// ウンコ初期化
 			state.matrixStack = new Kayac.MatrixStack();
 			state.unkoTransform = new Kayac.Transform();
 
@@ -2730,16 +2927,31 @@ void main(){
 
 			state.topTransform.position = Kayac.V3.createXyz(0, 1, 0);
 			state.topTransform.scale = Kayac.V3.createXyz(1, 1 / 3, 1);
+
+			// UI系初期化
+			state.uiSprites = {};
+			var uiItems = uiAtlas.items;
+			var uiTexture = state.textures['uiAtlas'];
+			for (var i = 0; i < uiItems.length; i++){
+				var item = uiItems[i];
+				var sprite = new Kayac.Sprite();
+				sprite.name = item.name;
+				sprite.texture = uiTexture;
+				sprite.size = [item.width, item.height];
+				sprite.texcoordScale = [1 / uiAtlas.width, 1 / uiAtlas.height];
+				sprite.texcoordOffset = [item.x / uiAtlas.width, 1 - (item.y / uiAtlas.height)];
+				uiSprites[sprite.name] = sprite;
+			}
 		};
 		var update = function () {
 			var now = Date.now();
 			state.deltaTime = (now - state.time) * 0.001;
 			state.time = now;
-			if (state.scene !== Scene.Loading){
+			if (state.scene !== Scene.Loading) {
 				var av = new Kayac.V3();
 				av.setA([1, 2, 3]);
 				state.unkoTransform.rotation.integrate(av, state.deltaTime);
-				if (state.scene === Scene.Title){
+				if (state.scene === Scene.Title) {
 					var s = Math.sin(state.time * 0.001);
 					state.topTransform.scale = Kayac.V3.createXyz(s, 1 / 3, s);
 					s = Math.sin(state.time * 0.0005);
@@ -2760,6 +2972,15 @@ void main(){
 				// ウンコ
 				var camera3dMatrix = state.camera3d.getMatrix();
 				drawUnko(camera3dMatrix);
+
+				state.gpu.setBlendEnabled(true); // アルファブレンド
+				state.gpu.setDepthTest(false, false); // Zテストしないし書き込まない
+				state.spriteRenderer.clear();
+				if (state.scene === Scene.Title){
+					var sprite = state.uiSprites['btm_start']
+					state.spriteRenderer.add(sprite);
+				}
+				state.spriteRenderer.draw(state.gpu, camera2dMatrix);
 			}
 		};
 		var drawLoading = function () {
@@ -2779,7 +3000,7 @@ void main(){
 			drawMesh(pvwm, state.topTransform, state.topMesh, camera3dMatrix);
 			state.matrixStack.pop();
 		};
-		var drawMesh = function(pvwm, transform, mesh, pvm){
+		var drawMesh = function (pvwm, transform, mesh, pvm) {
 			var m = transform.getMatrix();
 			state.matrixStack.pushMul(m);
 			var wm = state.matrixStack.top();
