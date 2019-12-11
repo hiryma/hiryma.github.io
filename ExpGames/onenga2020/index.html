@@ -2,6 +2,7 @@
 <html>
 
 <head>
+	<link rel="icon" type="image/png" href="favicon.png">
 	<style type="text/css">
 		<!--
 		.center {
@@ -33,35 +34,36 @@ attribute vec2 aTexCoord;
 varying vec3 vNormal;
 varying vec2 vTexCoord;
 
-uniform vec4 transform0;
-uniform vec4 transform1;
-uniform vec4 transform2;
-uniform vec4 transform3;
-uniform vec3 toWorld0;
-uniform vec3 toWorld1;
-uniform vec3 toWorld2;
+uniform vec4 uTransform0;
+uniform vec4 uTransform1;
+uniform vec4 uTransform2;
+uniform vec4 uTransform3;
+uniform vec3 uToWorld0;
+uniform vec3 uToWorld1;
+uniform vec3 uToWorld2;
 
 void main(){
 	vec4 p = vec4(aPosition.xyz, 1.0);
-	gl_Position.x = dot(transform0, p);
-	gl_Position.y = dot(transform1, p);
-	gl_Position.z = dot(transform2, p);
-	gl_Position.w = dot(transform3, p);
+	gl_Position.x = dot(uTransform0, p);
+	gl_Position.y = dot(uTransform1, p);
+	gl_Position.z = dot(uTransform2, p);
+	gl_Position.w = dot(uTransform3, p);
 	vTexCoord = aTexCoord;
-	vNormal.x = dot(toWorld0, aNormal);
-	vNormal.y = dot(toWorld1, aNormal);
-	vNormal.z = dot(toWorld2, aNormal);
+	vNormal.x = dot(uToWorld0, aNormal);
+	vNormal.y = dot(uToWorld1, aNormal);
+	vNormal.z = dot(uToWorld2, aNormal);
 }
 </script>
 
 	<script id="3dfs" type="x-shader/x-fragment">
 precision mediump float;
 uniform sampler2D uSampler;
+uniform vec4 uAlbedo;
 varying vec3 vNormal; // world
 varying vec2 vTexCoord;
 
 void main(){
-	vec4 c = texture2D(uSampler, vTexCoord);
+	vec4 c = texture2D(uSampler, vTexCoord) * uAlbedo;
 	vec3 lightVector = vec3(0.57, 0.57, -0.57);
 	vec3 ambient = vec3(0.2, 0.2, 0.2);
 	float dp = dot(vNormal, lightVector);
@@ -76,13 +78,13 @@ precision mediump float;
 attribute vec2 aPosition;
 attribute vec2 aTexCoord;
 varying vec2 vTexCoord;
-uniform vec3 transform0;
-uniform vec3 transform1;
+uniform vec3 uTransform0;
+uniform vec3 uTransform1;
 
 void main(){
 	vec3 p = vec3(aPosition.xy, 1.0);
-	gl_Position.x = dot(transform0, p);
-	gl_Position.y = dot(transform1, p);
+	gl_Position.x = dot(uTransform0, p);
+	gl_Position.y = dot(uTransform1, p);
 	gl_Position.z = -1.0;
 	gl_Position.w = 1.0;
 	vTexCoord = aTexCoord;
@@ -727,7 +729,8 @@ void main(){
 					minFilter = gl.NEAREST_MIPMAP_NEAREST;
 					magFilter = gl.NEAREST;
 				} else {
-					magFilter = minFilter = gl.LINEAR;
+					minFilter = gl.LINEAR_MIPMAP_LINEAR;
+					magFilter = gl.LINEAR;
 				}
 			} else {
 				if (arg.pointSampling === true) {
@@ -1059,7 +1062,7 @@ void main(){
 		};
 
 		//以下メソッド版。インライン展開してくれるかなあ
-		Kayac.V2.prototype.setXyz = function (x, y) {
+		Kayac.V2.prototype.setXy = function (x, y) {
 			Kayac.V2.setXy(this, x, y);
 		};
 
@@ -2376,20 +2379,22 @@ void main(){
 			var src = srcIndex * floatStride;
 			Kayac.copyArray(data, dst, data, src, floatStride);
 		};
-		Kayac.Mesh.prototype.draw = function (gpu, pvwMatrix, wMatrix) {
+		Kayac.Mesh.prototype.draw = function (gpu, pvwMatrix, wMatrix, albedo) {
 			gpu.setVertexBuffer(this.mVertexBuffer);
 			gpu.setShader(this.mShader);
 			gpu.setVertexFormat(this.mVertexFormat);
 
 			var m = pvwMatrix; // 別名
-			gpu.setConstant('transform0', [m.m00, m.m01, m.m02, m.m03]);
-			gpu.setConstant('transform1', [m.m10, m.m11, m.m12, m.m13]);
-			gpu.setConstant('transform2', [m.m20, m.m21, m.m22, m.m23]);
-			gpu.setConstant('transform3', [m.m30, m.m31, m.m32, m.m33]);
+			gpu.setConstant('uTransform0', [m.m00, m.m01, m.m02, m.m03]);
+			gpu.setConstant('uTransform1', [m.m10, m.m11, m.m12, m.m13]);
+			gpu.setConstant('uTransform2', [m.m20, m.m21, m.m22, m.m23]);
+			gpu.setConstant('uTransform3', [m.m30, m.m31, m.m32, m.m33]);
 			m = wMatrix; // 別名
-			gpu.setConstant('toWorld0', [m.m00, m.m01, m.m02]);
-			gpu.setConstant('toWorld1', [m.m10, m.m11, m.m12]);
-			gpu.setConstant('toWorld2', [m.m20, m.m21, m.m22]);
+			gpu.setConstant('uToWorld0', [m.m00, m.m01, m.m02]);
+			gpu.setConstant('uToWorld1', [m.m10, m.m11, m.m12]);
+			gpu.setConstant('uToWorld2', [m.m20, m.m21, m.m22]);
+
+			gpu.setConstant('uAlbedo', albedo);
 			// TODO: ライトパラメタ
 			gpu.draw(this.mVertexCount, Kayac.Gpu.Primitive.Triangle, 0);
 		};
@@ -2449,13 +2454,17 @@ void main(){
 		// Sprite
 		Kayac.Sprite = function () {
 			this.name = 'unnamed sprite';
-			this.position = [0, 0];
 			this.size = [1, 1];
 			this.texture = null;
 			this.texcoordOffset = [0, 0];
 			this.texcoordSize = [1, 1];
 		};
 
+		// SpriteInstance
+		Kayac.SpriteInstance = function () {
+			this.sprite = null;
+			this.transform = null;
+		};
 		// SpriteRenderer
 		Kayac.SpriteRenderer = function (
 			gpu,
@@ -2465,66 +2474,30 @@ void main(){
 
 			var stride = vertexFormat.stride;
 			var vertexBufferSize = spriteCapacity * 6 * stride;
-			this.mSprites = [];
+			this.mInstances = [];
 			this.mGpu = gpu;
 			this.mShader = shader;
 			this.mVertexFormat = vertexFormat;
 			this.mVertexBuffer = new Kayac.VertexBuffer({ gpu: gpu, name: 'spriteRendererVb', size: vertexBufferSize });
+			this.parentWidth = 0;
+			this.parentHeight = 0;
 		};
 		Kayac.SpriteRenderer.prototype.clear = function () {
-			this.mSprites = [];
+			this.mInstances = [];
 		};
-		Kayac.SpriteRenderer.prototype.add = function (sprite) {
-			this.mSprites.push(sprite);
+		Kayac.SpriteRenderer.prototype.add = function (spriteInstance) {
+			console.assert(spriteInstance);
+			this.mInstances.push(spriteInstance);
 		};
 		Kayac.SpriteRenderer.prototype.draw = function (gpu, cameraMatrix) {
 			// 全頂点バッファを生成
 			var floatStride = this.mVertexFormat.stride / 4;
-			var buffer = new Float32Array(this.mSprites.length * 6 * floatStride);
+			var buffer = new Float32Array(this.mInstances.length * 6 * floatStride);
 			var offset = 0;
-			for (var i = 0; i < this.mSprites.length; i++) {
-				var sprite = this.mSprites[i];
-				// 右下
-				buffer[offset + 0] = sprite.position[0] + sprite.size[0];
-				buffer[offset + 1] = sprite.position[1] + sprite.size[1];
-				buffer[offset + 2] = sprite.texcoordOffset[0] + sprite.texcoordSize[0];
-				buffer[offset + 3] = sprite.texcoordOffset[1] + sprite.texcoordSize[1];
-				offset += floatStride;
-
-				// 右上
-				buffer[offset + 0] = sprite.position[0] + sprite.size[0];
-				buffer[offset + 1] = sprite.position[1];
-				buffer[offset + 2] = sprite.texcoordOffset[0] + sprite.texcoordSize[0];
-				buffer[offset + 3] = sprite.texcoordOffset[1];
-				offset += floatStride;
-
-				// 左下
-				buffer[offset + 0] = sprite.position[0];
-				buffer[offset + 1] = sprite.position[1] + sprite.size[1];
-				buffer[offset + 2] = sprite.texcoordOffset[0];
-				buffer[offset + 3] = sprite.texcoordOffset[1] + sprite.texcoordSize[1];
-				offset += floatStride;
-
-				// 左下
-				buffer[offset + 0] = buffer[offset - 4];
-				buffer[offset + 1] = buffer[offset - 3];
-				buffer[offset + 2] = buffer[offset - 2];
-				buffer[offset + 3] = buffer[offset - 1];
-				offset += floatStride;
-
-				// 右上
-				buffer[offset + 0] = buffer[offset - 12];
-				buffer[offset + 1] = buffer[offset - 11];
-				buffer[offset + 2] = buffer[offset - 10];
-				buffer[offset + 3] = buffer[offset - 9];
-				offset += floatStride;
-
-				// 左上
-				buffer[offset + 0] = sprite.position[0];
-				buffer[offset + 1] = sprite.position[1];
-				buffer[offset + 2] = sprite.texcoordOffset[0];
-				buffer[offset + 3] = sprite.texcoordOffset[1];
-				offset += floatStride;
+			var tmpOrigin = Kayac.V2.createXy(0, 0);
+			for (var i = 0; i < this.mInstances.length; i++) {
+				var instance = this.mInstances[i];
+				offset = this.fillVertices(buffer, instance, offset, tmpOrigin);
 			}
 			this.mVertexBuffer.update(buffer.buffer);
 
@@ -2532,14 +2505,77 @@ void main(){
 			gpu.setVertexBuffer(this.mVertexBuffer);
 			gpu.setShader(this.mShader);
 			gpu.setVertexFormat(this.mVertexFormat);
-			gpu.setConstant('transform0', [cameraMatrix.m00, cameraMatrix.m01, cameraMatrix.m02]);
-			gpu.setConstant('transform1', [cameraMatrix.m10, cameraMatrix.m11, cameraMatrix.m12]);
-			for (var i = 0; i < this.mSprites.length; i++) {
-				gpu.setTexture('uSampler', this.mSprites[i].texture); // あとで
+			gpu.setConstant('uTransform0', [cameraMatrix.m00, cameraMatrix.m01, cameraMatrix.m02]);
+			gpu.setConstant('uTransform1', [cameraMatrix.m10, cameraMatrix.m11, cameraMatrix.m12]);
+			for (var i = 0; i < this.mInstances.length; i++) {
+				gpu.setTexture('uSampler', this.mInstances[i].sprite.texture); // あとで
 				gpu.draw(6, Kayac.Gpu.Primitive.Triangle, i * 6);
 			}
 		};
+		Kayac.SpriteRenderer.prototype.fillVertices = function (buffer, instance, offset, tmpOrigin) {
+			var floatStride = this.mVertexFormat.stride / 4;
+			var sprite = instance.sprite;
+			var transform = instance.transform;
+			console.assert(sprite && transform);
+			this.getOrigin(tmpOrigin, sprite, transform);
+			var u = sprite.texcoordOffset[0] + transform.texcoordOffset[0];
+			var v = sprite.texcoordOffset[1] + transform.texcoordOffset[1];
+			// 右下
+			buffer[offset + 0] = tmpOrigin.x + sprite.size[0];
+			buffer[offset + 1] = tmpOrigin.y + sprite.size[1];
+			buffer[offset + 2] = u + sprite.texcoordSize[0];
+			buffer[offset + 3] = v + sprite.texcoordSize[1];
+			offset += floatStride;
 
+			// 右上
+			buffer[offset + 0] = tmpOrigin.x + sprite.size[0];
+			buffer[offset + 1] = tmpOrigin.y;
+			buffer[offset + 2] = u + sprite.texcoordSize[0];
+			buffer[offset + 3] = v;
+			offset += floatStride;
+
+			// 左下
+			buffer[offset + 0] = tmpOrigin.x;
+			buffer[offset + 1] = tmpOrigin.y + sprite.size[1];
+			buffer[offset + 2] = u;
+			buffer[offset + 3] = v + sprite.texcoordSize[1];
+			offset += floatStride;
+
+			// 左下
+			buffer[offset + 0] = buffer[offset - 4];
+			buffer[offset + 1] = buffer[offset - 3];
+			buffer[offset + 2] = buffer[offset - 2];
+			buffer[offset + 3] = buffer[offset - 1];
+			offset += floatStride;
+
+			// 右上
+			buffer[offset + 0] = buffer[offset - 12];
+			buffer[offset + 1] = buffer[offset - 11];
+			buffer[offset + 2] = buffer[offset - 10];
+			buffer[offset + 3] = buffer[offset - 9];
+			offset += floatStride;
+
+			// 左上
+			buffer[offset + 0] = tmpOrigin.x;
+			buffer[offset + 1] = tmpOrigin.y;
+			buffer[offset + 2] = u;
+			buffer[offset + 3] = v;
+			offset += floatStride;
+			return offset;
+		};
+		Kayac.SpriteRenderer.prototype.getOrigin = function (originOut, sprite, transform) {
+			// 親の中の座標原点
+			originOut.x = this.parentWidth * transform.anchor[0];
+			originOut.y = this.parentHeight * transform.anchor[1];
+			// 自分のピボットを見てズラす
+			originOut.x -= sprite.size[0] * transform.pivot[0];
+			originOut.y -= sprite.size[1] * transform.pivot[1];
+			// 位置を加算
+			originOut.x += transform.position[0];
+			originOut.y += transform.position[1];
+		};
+
+		// 3DのTransform
 		Kayac.Transform = function () {
 			this.name = 'unnamed transform';
 			this.position = Kayac.V3.createXyz(0, 0, 0);
@@ -2554,6 +2590,16 @@ void main(){
 			ret.preMultiplyTranslation(this.position); // 前から移動を乗算
 			ret.postMultiplyScale(this.scale); // 後ろから拡縮を乗算
 			return ret;
+		};
+
+		// 2DのTransform
+		Kayac.Transform2d = function () {
+			this.name = 'unnamed transform2d';
+			this.pivot = [0.5, 0.5];
+			this.anchor = [0.5, 0.5];
+			this.scale = [1, 1];
+			this.position = [0, 0];
+			this.texcoordOffset = [0, 0];
 		};
 
 		// MatrixStack
@@ -2591,199 +2637,432 @@ void main(){
 		UnkoNenga.uiAtlas = { // ここ以下はAtlasMakerによる自動生成
 			"items": [
 				{
+					"name": "result_flame_bg",
+					"width": 630,
+					"height": 360,
+					"x": 4,
+					"y": 4
+				},
+				{
 					"name": "result_text_cyoubiun",
 					"width": 604,
 					"height": 220,
 					"x": 4,
-					"y": 4
+					"y": 368
 				},
 				{
 					"name": "result_text_cyubiun",
 					"width": 604,
 					"height": 220,
 					"x": 4,
-					"y": 228
+					"y": 592
 				},
 				{
 					"name": "result_text_cyubsyuuun",
 					"width": 604,
 					"height": 220,
 					"x": 4,
-					"y": 452
+					"y": 816
 				},
 				{
 					"name": "result_text_daibiun",
 					"width": 604,
 					"height": 220,
 					"x": 4,
-					"y": 676
+					"y": 1040
 				},
 				{
 					"name": "result_text_daibsyuuun",
 					"width": 604,
 					"height": 220,
 					"x": 4,
-					"y": 900
-				},
-				{
-					"name": "result_text_keisoku",
-					"width": 604,
-					"height": 220,
-					"x": 4,
-					"y": 1124
+					"y": 1264
 				},
 				{
 					"name": "result_text_syobiun",
 					"width": 604,
 					"height": 220,
 					"x": 4,
-					"y": 1348
+					"y": 1488
 				},
 				{
 					"name": "result_text_syobsyuuun",
 					"width": 604,
 					"height": 220,
 					"x": 4,
-					"y": 1572
+					"y": 1712
 				},
 				{
 					"name": "title",
 					"width": 570,
 					"height": 146,
 					"x": 4,
-					"y": 1796
+					"y": 1936
 				},
 				{
 					"name": "text_setsumei",
 					"width": 536,
 					"height": 224,
 					"x": 4,
-					"y": 1946
+					"y": 2086
 				},
 				{
 					"name": "result_text01",
 					"width": 450,
 					"height": 50,
 					"x": 544,
-					"y": 1946
+					"y": 2086
 				},
 				{
 					"name": "result_text03",
 					"width": 418,
 					"height": 50,
 					"x": 4,
-					"y": 2174
+					"y": 2314
+				},
+				{
+					"name": "text_bottom",
+					"width": 416,
+					"height": 180,
+					"x": 426,
+					"y": 2314
 				},
 				{
 					"name": "text_middle",
 					"width": 416,
 					"height": 180,
-					"x": 426,
-					"y": 2174
+					"x": 4,
+					"y": 2498
 				},
 				{
 					"name": "btm_start",
 					"width": 410,
 					"height": 84,
-					"x": 4,
-					"y": 2358
-				},
-				{
-					"name": "result_text02",
-					"width": 350,
-					"height": 50,
-					"x": 418,
-					"y": 2358
+					"x": 424,
+					"y": 2498
 				},
 				{
 					"name": "btm_tap",
 					"width": 256,
 					"height": 256,
 					"x": 4,
-					"y": 2446
+					"y": 2682
 				},
 				{
 					"name": "text_top",
 					"width": 256,
 					"height": 180,
 					"x": 264,
-					"y": 2446
+					"y": 2682
 				},
 				{
-					"name": "result",
-					"width": 250,
-					"height": 58,
+					"name": "btm_retry",
+					"width": 244,
+					"height": 54,
 					"x": 524,
-					"y": 2446
+					"y": 2682
 				},
 				{
 					"name": "result_balance_beautiful",
 					"width": 218,
 					"height": 42,
-					"x": 778,
-					"y": 2446
+					"x": 772,
+					"y": 2682
 				},
 				{
 					"name": "result_balance",
 					"width": 180,
 					"height": 42,
 					"x": 4,
-					"y": 2706
+					"y": 2942
 				},
 				{
 					"name": "result_size_medium",
 					"width": 160,
 					"height": 42,
 					"x": 188,
-					"y": 2706
+					"y": 2942
 				},
 				{
 					"name": "result_size_small",
 					"width": 148,
 					"height": 42,
 					"x": 352,
-					"y": 2706
+					"y": 2942
 				},
 				{
 					"name": "result_size_large",
 					"width": 138,
 					"height": 42,
 					"x": 504,
-					"y": 2706
+					"y": 2942
 				},
 				{
 					"name": "result_balance_ugly",
 					"width": 126,
 					"height": 42,
 					"x": 646,
-					"y": 2706
+					"y": 2942
 				},
 				{
 					"name": "result_size",
 					"width": 100,
 					"height": 42,
 					"x": 776,
-					"y": 2706
-				},
-				{
-					"name": "result_flame",
-					"width": 40,
-					"height": 40,
-					"x": 880,
-					"y": 2706
+					"y": 2942
 				}
 			],
 			"width": 1024,
 			"height": 4096
 		};
+		// 配置データ
+		UnkoNenga.uiTransforms = [
+			{
+				"name": "result_flame_bg",
+				"pivot": [0.5, 0.5],
+				"anchor": [0.5, 0.85],
+				"scale": [1, 1],
+				"position": [0, 0],
+				"texcoordOffset": [0, 0],
+			},
+			{
+				"name": "result_text_cyoubiun",
+				"pivot": [0.5, 0.5],
+				"anchor": [0.5, 0.85],
+				"scale": [1, 1],
+				"position": [0, 0],
+				"texcoordOffset": [0, 0],
+			},
+			{
+				"name": "result_text_cyubiun",
+				"pivot": [0.5, 0.5],
+				"anchor": [0.5, 0.85],
+				"scale": [1, 1],
+				"position": [0, 0],
+				"texcoordOffset": [0, 0],
+			},
+			{
+				"name": "result_text_cyubsyuuun",
+				"pivot": [0.5, 0.5],
+				"anchor": [0.5, 0.85],
+				"scale": [1, 1],
+				"position": [0, 0],
+				"texcoordOffset": [0, 0],
+			},
+			{
+				"name": "result_text_daibiun",
+				"pivot": [0.5, 0.5],
+				"anchor": [0.5, 0.85],
+				"scale": [1, 1],
+				"position": [0, 0],
+				"texcoordOffset": [0, 0],
+			},
+			{
+				"name": "result_text_daibsyuuun",
+				"pivot": [0.5, 0.5],
+				"anchor": [0.5, 0.85],
+				"scale": [1, 1],
+				"position": [0, 0],
+				"texcoordOffset": [0, 0],
+			},
+			{
+				"name": "result_text_keisoku",
+				"pivot": [0.5, 0.5],
+				"anchor": [0.5, 0.5],
+				"scale": [1, 1],
+				"position": [0, 0],
+				"texcoordOffset": [0, 0],
+			},
+			{
+				"name": "result_text_syobiun",
+				"pivot": [0.5, 0.5],
+				"anchor": [0.5, 0.85],
+				"scale": [1, 1],
+				"position": [0, 0],
+				"texcoordOffset": [0, 0],
+			},
+			{
+				"name": "result_text_syobsyuuun",
+				"pivot": [0.5, 0.5],
+				"anchor": [0.5, 0.85],
+				"scale": [1, 1],
+				"position": [0, 0],
+				"texcoordOffset": [0, 0],
+			},
+			{
+				"name": "title",
+				"pivot": [0.5, 0.5],
+				"anchor": [0.5, 0.15],
+				"scale": [1, 1],
+				"position": [0, 0],
+				"texcoordOffset": [0, 0],
+			},
+			{
+				"name": "text_setsumei",
+				"pivot": [0.5, 0.5],
+				"anchor": [0.5, 0.75],
+				"scale": [1, 1],
+				"position": [0, 0],
+				"texcoordOffset": [0, 0],
+			},
+			{
+				"name": "result_text01",
+				"pivot": [0.5, 0.5],
+				"anchor": [0.5, 0.73],
+				"scale": [1, 1],
+				"position": [0, 0],
+				"texcoordOffset": [0, 0],
+			},
+			{
+				"name": "result_text03",
+				"pivot": [0.5, 0.5],
+				"anchor": [0.5, 0.97],
+				"scale": [1, 1],
+				"position": [0, 0],
+				"texcoordOffset": [0, 0],
+			},
+			{
+				"name": "text_bottom",
+				"pivot": [0.5, 0.5],
+				"anchor": [0.5, 0.15],
+				"scale": [1, 1],
+				"position": [0, 0],
+				"texcoordOffset": [0, 0],
+			},
+			{
+				"name": "text_middle",
+				"pivot": [0.5, 0.5],
+				"anchor": [0.5, 0.15],
+				"scale": [1, 1],
+				"position": [0, 0],
+				"texcoordOffset": [0, 0],
+			},
+			{
+				"name": "btm_start",
+				"pivot": [0.5, 0.5],
+				"anchor": [0.5, 0.9],
+				"scale": [1, 1],
+				"position": [0, 0],
+				"texcoordOffset": [0, 0],
+			},
+			{
+				"name": "result_text02",
+				"pivot": [0.5, 0.5],
+				"anchor": [0.5, 0.7],
+				"scale": [1, 1],
+				"position": [0, 0],
+				"texcoordOffset": [0, 0],
+			},
+			{
+				"name": "btm_tap",
+				"pivot": [0.5, 0.5],
+				"anchor": [0.5, 0.85],
+				"scale": [1, 1],
+				"position": [0, 0],
+				"texcoordOffset": [0, 0],
+			},
+			{
+				"name": "text_top",
+				"pivot": [0.5, 0.5],
+				"anchor": [0.5, 0.15],
+				"scale": [1, 1],
+				"position": [0, 0],
+				"texcoordOffset": [0, 0],
+			},
+			{
+				"name": "btm_retry",
+				"pivot": [0.5, 0.5],
+				"anchor": [0.8, 0.95],
+				"scale": [1, 1],
+				"position": [0, 0],
+				"texcoordOffset": [0, 0],
+			},
+			{
+				"name": "result",
+				"pivot": [0.5, 0.5],
+				"anchor": [0.7, 0.5],
+				"scale": [1, 1],
+				"position": [0, 0],
+				"texcoordOffset": [0, 0],
+			},
+			{
+				"name": "result_balance_beautiful",
+				"pivot": [1, 0.5],
+				"anchor": [1, 0.65],
+				"scale": [1, 1],
+				"position": [0, 0],
+				"texcoordOffset": [0, 0],
+			},
+			{
+				"name": "result_balance",
+				"pivot": [1, 0.5],
+				"anchor": [1, 0.61],
+				"scale": [1, 1],
+				"position": [0, 0],
+				"texcoordOffset": [0, 0],
+			},
+			{
+				"name": "result_size_medium",
+				"pivot": [1, 0.5],
+				"anchor": [1, 0.55],
+				"scale": [1, 1],
+				"position": [0, 0],
+				"texcoordOffset": [0, 0],
+			},
+			{
+				"name": "result_size_small",
+				"pivot": [1, 0.5],
+				"anchor": [1, 0.55],
+				"scale": [1, 1],
+				"position": [0, 0],
+				"texcoordOffset": [0, 0],
+			},
+			{
+				"name": "result_size_large",
+				"pivot": [1, 0.5],
+				"anchor": [1, 0.55],
+				"scale": [1, 1],
+				"position": [0, 0],
+				"texcoordOffset": [0, 0],
+			},
+			{
+				"name": "result_balance_ugly",
+				"pivot": [1, 0.5],
+				"anchor": [1, 0.65],
+				"scale": [1, 1],
+				"position": [0, 0],
+				"texcoordOffset": [0, 0],
+			},
+			{
+				"name": "result_size",
+				"pivot": [1, 0.5],
+				"anchor": [1, 0.51],
+				"scale": [1, 1],
+				"position": [0, 0],
+				"texcoordOffset": [0, 0],
+			},
+			{
+				"name": "result_flame",
+				"pivot": [0.5, 0.5],
+				"anchor": [0.5, 0.75],
+				"scale": [1, 1],
+				"position": [0, 0],
+				"texcoordOffset": [0, 0],
+			}
+		];
+
 	</script>
 
 	<script>
 		"use strict";
 		(function () {
 			var uiAtlas = UnkoNenga.uiAtlas;
+			var uiTransforms = {};
+			for (var i = 0; i < UnkoNenga.uiTransforms.length; i++) {
+				uiTransforms[UnkoNenga.uiTransforms[i].name] = UnkoNenga.uiTransforms[i];
+			}
 			var requestAspect = 9 / 16;
-			var logicalWidth = 640;
+			var logicalWidth = 720;
 			var logicalHeight = logicalWidth / requestAspect;
 
 			//フレームをまたいで保持するデータ
@@ -2795,8 +3074,9 @@ void main(){
 				vertexFormat2d: null,
 				shader3d: null,
 				shader2d: null,
-				backgroundSprite: null,
+				backgroundSpriteInstance: null,
 				spriteRenderer: null,
+				spriteInstances: {},
 				down: false,
 				clicked: false,
 				cursorPos: { x: 0, y: 0 },
@@ -2848,15 +3128,9 @@ void main(){
 					if (state.clicked === true) {
 						changeScene(gameScene);
 					}
-					var av = new Kayac.V3();
-					av.setA([1, 2, 3]);
+					// 雑
+					var av = Kayac.V3.createXyz(0.2, 0.3, 0.5);
 					state.unkoTransform.rotation.integrate(av, state.deltaTime);
-					var s = Math.sin(state.time * 0.001);
-					state.topTransform.scale = Kayac.V3.createXyz(s, 1 / 3, s);
-					s = Math.sin(state.time * 0.0005);
-					state.middleTransform.scale = Kayac.V3.createXyz(s, 1 / 3, s);
-					s = Math.sin(state.time * 0.00075);
-					state.bottomTransform.scale = Kayac.V3.createXyz(s, 1 / 3, s);
 				},
 				draw: function () {
 					state.gpu.clear(1, 1, 1, 1); // まずクリア。バグってるかわかるように派手ピンクで塗る
@@ -2865,24 +3139,22 @@ void main(){
 					drawBackground(camera2dMatrix);
 					// ウンコ
 					var camera3dMatrix = state.camera3d.getMatrix();
-					drawUnko(camera3dMatrix);
+					drawUnko(camera3dMatrix, true, true, true);
 
 					state.gpu.setBlendEnabled(true); // アルファブレンド
 					state.gpu.setDepthTest(false, false); // Zテストしないし書き込まない
 					state.spriteRenderer.clear();
 
-					var sprite = state.uiSprites['btm_start']
-					sprite.position = [(logicalWidth - sprite.size[0]) * 0.5, logicalHeight * 0.8];
-					state.spriteRenderer.add(sprite);
-
-					sprite = state.uiSprites['title']
-					sprite.position = [(logicalWidth - sprite.size[0]) * 0.5, logicalHeight * 0.1];
-					state.spriteRenderer.add(sprite);
-
-					sprite = state.uiSprites['text_setsumei']
-					sprite.position = [(logicalWidth - sprite.size[0]) * 0.5, logicalHeight * 0.6];
-					state.spriteRenderer.add(sprite);
-					state.spriteRenderer.draw(state.gpu, camera2dMatrix);
+					addSprite('btm_start');
+					addSprite('title');
+					addSprite('text_setsumei');
+					state.spriteRenderer.draw(state.gpu, camera2dMatrix)
+				}
+			};
+			var addSprite = function (name) {
+				var instance = state.spriteInstances[name];
+				if (instance) {
+					state.spriteRenderer.add(instance);
 				}
 			};
 			var gameScene = {
@@ -2892,27 +3164,29 @@ void main(){
 					this.progress = 0;
 				},
 				update: function () {
+					console.log(this.progress);
 					if (this.progress === 0) {
 						if (state.clicked === true) {
 							this.progress += 1;
 						}
+						var s = Math.sin(state.time * 0.001);
+						state.bottomTransform.scale = Kayac.V3.createXyz(s, 1 / 3, s);
 					} else if (this.progress === 1) {
 						if (state.clicked === true) {
 							this.progress += 1;
 						}
+						var s = Math.sin(state.time * 0.001);
+						state.middleTransform.scale = Kayac.V3.createXyz(s, 1 / 3, s);
 					} else if (this.progress === 2) {
-						changeScene(resultScene);
+						if (state.clicked === true) {
+							changeScene(resultScene);
+						}
+						var s = Math.sin(state.time * 0.001);
+						state.topTransform.scale = Kayac.V3.createXyz(s, 1 / 3, s);
 					}
 
-					var av = new Kayac.V3();
-					av.setA([6, 5, 4]);
+					var av = Kayac.V3.createXyz(0.2, 0.3, 0.5);
 					state.unkoTransform.rotation.integrate(av, state.deltaTime);
-					var s = Math.sin(state.time * 0.001);
-					state.topTransform.scale = Kayac.V3.createXyz(s, 1 / 3, s);
-					s = Math.sin(state.time * 0.0005);
-					state.middleTransform.scale = Kayac.V3.createXyz(s, 1 / 3, s);
-					s = Math.sin(state.time * 0.00075);
-					state.bottomTransform.scale = Kayac.V3.createXyz(s, 1 / 3, s);
 				},
 				draw: function () {
 					state.gpu.clear(1, 1, 1, 1); // まずクリア。バグってるかわかるように派手ピンクで塗る
@@ -2921,31 +3195,36 @@ void main(){
 					drawBackground(camera2dMatrix);
 					// ウンコ
 					var camera3dMatrix = state.camera3d.getMatrix();
-					drawUnko(camera3dMatrix);
+					drawUnko(
+						camera3dMatrix,
+						this.progress !== 0,
+						this.progress !== 1,
+						this.progress !== 2);
 
 					state.gpu.setBlendEnabled(true); // アルファブレンド
 					state.gpu.setDepthTest(false, false); // Zテストしないし書き込まない
 					state.spriteRenderer.clear();
-					// TODO:
-					state.spriteRenderer.draw(state.gpu, camera2dMatrix);
+
+					addSprite('btm_tap');
+					if (this.progress === 0) {
+						addSprite('text_bottom');
+					} else if (this.progress === 1) {
+						addSprite('text_middle');
+					} else if (this.progress === 2) {
+						addSprite('text_top');
+					}
+					state.spriteRenderer.draw(state.gpu, camera2dMatrix)
 				}
 			};
 			var resultScene = {
 				name: 'result',
 				update: function () {
 					if (state.clicked === true) {
-						changeScene(gameScene);
+						changeScene(titleScene);
 					}
-					var av = new Kayac.V3();
-					av.setA([2, 1, 0.5]);
+					// 雑
+					var av = Kayac.V3.createXyz(0.2, 0.3, 0.5);
 					state.unkoTransform.rotation.integrate(av, state.deltaTime);
-					var s = Math.sin(state.time * 0.001);
-					state.topTransform.scale = Kayac.V3.createXyz(s, 1 / 3, s);
-					s = Math.sin(state.time * 0.0005);
-					state.middleTransform.scale = Kayac.V3.createXyz(s, 1 / 3, s);
-					s = Math.sin(state.time * 0.00075);
-					state.bottomTransform.scale = Kayac.V3.createXyz(s, 1 / 3, s);
-
 				},
 				draw: function () {
 					state.gpu.clear(1, 1, 1, 1); // まずクリア。バグってるかわかるように派手ピンクで塗る
@@ -2954,12 +3233,54 @@ void main(){
 					drawBackground(camera2dMatrix);
 					// ウンコ
 					var camera3dMatrix = state.camera3d.getMatrix();
-					drawUnko(camera3dMatrix);
+					drawUnko(camera3dMatrix, false, false, false);
 
 					state.gpu.setBlendEnabled(true); // アルファブレンド
 					state.gpu.setDepthTest(false, false); // Zテストしないし書き込まない
 					state.spriteRenderer.clear();
-					// TODO:
+
+					addSprite('title');
+					addSprite('result_flame_bg');
+					addSprite('result_text01');
+					addSprite('result_text03');
+					addSprite('result_size');
+					addSprite('result_balance');
+					addSprite('btm_retry');
+					var size = 0;
+					var balance = 0;
+					if (size === 0) {
+						addSprite('result_size_small');
+						if (balance === 0) {
+							addSprite('result_text_syobsyuuun');
+							addSprite('result_balance_ugly');
+						} else if (balance === 1) {
+							addSprite('result_text_syobiun');
+							addSprite('result_balance_beautiful');
+						}
+					} else if (size === 1) {
+						addSprite('result_size_medium');
+						if (balance === 0) {
+							addSprite('result_text_cyubsyuuun');
+							addSprite('result_balance_ugly');
+						} else if (balance === 1) {
+							addSprite('result_text_cyubiun');
+							addSprite('result_balance_beautiful');
+						}
+					} else {
+						addSprite('result_size_large');
+						if ((size === 3) && (balance === 1)) {
+							addSprite('result_balance_beautiful');
+							addSprite('result_text_cyoubiun');
+						} else {
+							if (balance === 0) {
+								addSprite('result_text_daibsyuuun');
+								addSprite('result_balance_ugly');
+							} else if (balance === 1) {
+								addSprite('result_text_daibiun');
+								addSprite('result_balance_beautiful');
+							}
+						}
+					}
 					state.spriteRenderer.draw(state.gpu, camera2dMatrix);
 				}
 			};
@@ -2988,6 +3309,8 @@ void main(){
 					]
 				};
 				state.spriteRenderer = new Kayac.SpriteRenderer(state.gpu, 32, state.vertexFormat2d, state.shader2d);
+				state.spriteRenderer.parentWidth = logicalWidth;
+				state.spriteRenderer.parentHeight = logicalHeight;
 				state.bottomMesh = new Kayac.Mesh(state.shader3d, state.vertexFormat3d, 'unkoBottom');
 				state.bottomMesh.setCube(state.gpu);
 				state.middleMesh = new Kayac.Mesh(state.shader3d, state.vertexFormat3d, 'middleBottom');
@@ -3044,14 +3367,17 @@ void main(){
 			};
 			var startAfterLoad = function () {
 				// 背景
-				var backSprite = new Kayac.Sprite();
-				backSprite.name = 'background';
-				backSprite.texture = state.textures['bg'];
-				backSprite.position = [0, 0];
-				var backgroundTiling = 2;
-				backSprite.size = [logicalWidth, logicalHeight];
-				backSprite.texcoordSize = [backgroundTiling, 2 * backgroundTiling * logicalHeight / logicalWidth];
-				state.backgroundSprite = backSprite;
+				var sprite = new Kayac.Sprite();
+				sprite.name = 'background';
+				sprite.texture = state.textures['bg'];
+				var backgroundTiling = 1.5;
+				sprite.size = [logicalWidth, logicalHeight];
+				sprite.texcoordSize = [backgroundTiling, 2 * backgroundTiling * logicalHeight / logicalWidth];
+
+				var backInstance = new Kayac.SpriteInstance();
+				backInstance.sprite = sprite;
+				backInstance.transform = new Kayac.Transform2d();
+				state.backgroundSpriteInstance = backInstance;
 
 				state.scene = titleScene;
 				// ウンコ初期化
@@ -3071,8 +3397,13 @@ void main(){
 				state.topTransform.scale = Kayac.V3.createXyz(1, 1 / 3, 1);
 
 				// UI系初期化
-				state.uiSprites = {};
-				var uiItems = uiAtlas.items;
+				// Transformをまず辞書化
+				var uiTransforms = {};
+				for (var i = 0; i < UnkoNenga.uiTransforms.length; i++) {
+					var transform = UnkoNenga.uiTransforms[i];
+					uiTransforms[transform.name] = transform;
+				}
+				var uiItems = UnkoNenga.uiAtlas.items;
 				var uiTexture = state.textures['uiAtlas'];
 				for (var i = 0; i < uiItems.length; i++) {
 					var item = uiItems[i];
@@ -3082,7 +3413,11 @@ void main(){
 					sprite.size = [item.width, item.height];
 					sprite.texcoordSize = [item.width / uiAtlas.width, item.height / uiAtlas.height];
 					sprite.texcoordOffset = [item.x / uiAtlas.width, item.y / uiAtlas.height];
-					state.uiSprites[sprite.name] = sprite;
+
+					var transform = uiTransforms[item.name];
+					var instance = { sprite: sprite, transform: transform };
+
+					state.spriteInstances[item.name] = instance;
 				}
 			};
 			var changeScene = function (newScene) {
@@ -3099,35 +3434,58 @@ void main(){
 					}
 				}
 			};
-			var drawUnko = function (camera3dMatrix) {
-				// 後で半透明不透明で分岐がいる
-				state.gpu.setBlendEnabled(false); // とりあえずアルファブレンド不要
-				state.gpu.setDepthTest(true, true);
-				state.gpu.setTexture('uSampler', null);
+			var drawUnko = function (camera3dMatrix, bottomTransparent, middleTransparent, topTransparent) {
 				var pvwm = new Kayac.M44();
 				var m = state.unkoTransform.getMatrix();
 				state.matrixStack.pushMul(m);
+				state.gpu.setTexture('uSampler', null);
 
-				drawMesh(pvwm, state.bottomTransform, state.bottomMesh, camera3dMatrix);
-				drawMesh(pvwm, state.middleTransform, state.middleMesh, camera3dMatrix);
-				drawMesh(pvwm, state.topTransform, state.topMesh, camera3dMatrix);
+				var albedo = [0, 0, 0, 0];
+				setUnkoTransparency(albedo, bottomTransparent);
+				drawMesh(pvwm, state.bottomTransform, state.bottomMesh, camera3dMatrix, albedo);
+				setUnkoTransparency(albedo, middleTransparent);
+				drawMesh(pvwm, state.middleTransform, state.middleMesh, camera3dMatrix, albedo);
+				setUnkoTransparency(albedo, topTransparent);
+				drawMesh(pvwm, state.topTransform, state.topMesh, camera3dMatrix, albedo);
+
 				state.matrixStack.pop();
 			};
-			var drawMesh = function (pvwm, transform, mesh, pvm) {
+			var setUnkoTransparency = function(albedoOut, isTransparent){
+				if (isTransparent){
+					state.gpu.setBlendEnabled(true);
+					state.gpu.setDepthTest(true, false);
+					albedoOut[0] = 0.5;
+					albedoOut[1] = 0.5;
+					albedoOut[2] = 0.5;
+					albedoOut[3] = 0.3;
+				}else{
+					state.gpu.setBlendEnabled(false);
+					state.gpu.setDepthTest(true, true);
+					albedoOut[0] = 1;
+					albedoOut[1] = 0.3;
+					albedoOut[2] = 1;
+					albedoOut[3] = 1;
+				}
+			};
+			var drawMesh = function (pvwm, transform, mesh, pvm, albedo) {
 				var m = transform.getMatrix();
 				state.matrixStack.pushMul(m);
 				var wm = state.matrixStack.top();
 				pvwm.setMul44x34(pvm, wm);
-				state.topMesh.draw(state.gpu, pvwm, wm);
+				state.topMesh.draw(state.gpu, pvwm, wm, albedo);
 				state.matrixStack.pop();
 			};
 			var drawBackground = function (camera2dMatrix) {
 				if (state.backgroundSprite !== null) {
-					Kayac.add2(state.backgroundSprite.texcoordOffset, [state.deltaTime, state.deltaTime]);
+					var scrollSpeed = -0.2;
+					var u = state.backgroundSpriteInstance.transform.texcoordOffset[0];
+					u += state.deltaTime * scrollSpeed;
+					u -= Math.floor(u);
+					state.backgroundSpriteInstance.transform.texcoordOffset[0] = u;
 					state.gpu.setBlendEnabled(true); // アルファブレンド不要
 					state.gpu.setDepthTest(false, false); // Zテストしないし書き込まない
 					state.spriteRenderer.clear();
-					state.spriteRenderer.add(state.backgroundSprite);
+					state.spriteRenderer.add(state.backgroundSpriteInstance);
 					state.spriteRenderer.draw(state.gpu, camera2dMatrix);
 				}
 			};
