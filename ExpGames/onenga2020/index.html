@@ -23,6 +23,7 @@
 	<div class="center">
 		<canvas id="screen"></canvas>
 	</div>
+	<a href="" id="tweet" "target="_blank">ツイート実験</a>
 
 	<script id="3dvs" type="x-shader/x-vertex">
 precision mediump float;
@@ -262,7 +263,7 @@ void main(){
 				context.drawImage(img, 0, 0);
 				var imageData = context.getImageData(0, 0, w, h);
 				var image = { width: w, height: h, name: name, data: null };
-				image.data = imageData.data;
+				image.data = new Uint8Array(imageData.data.buffer);
 				var body = document.body;
 				body.removeChild(canvas);
 				if (!srcIsImg) {
@@ -3093,6 +3094,9 @@ void main(){
 				topTransform: null,
 				deltaTime: 0,
 				scene: null,
+				bgm: null,
+				bgmPlaying: false,
+				audioExt: null
 			};
 			var setResolution = function (canvas, requestAspect) {
 				var windowWidth = window.innerWidth;
@@ -3420,6 +3424,14 @@ void main(){
 					state.spriteInstances[item.name] = instance;
 				}
 			};
+			var loadAudio = function(name){
+				var ret = null;
+				if (state.audioExt !== null){
+					var path = name + state.audioExt;
+					ret = new Audio(path);
+				}
+				return ret;
+			};
 			var changeScene = function (newScene) {
 				console.log('changescene ' + state.scene.name + ' -> ' + newScene.name);
 				if (state.scene !== null) {
@@ -3544,8 +3556,23 @@ void main(){
 			var onClickCanvas = function (e) {
 				state.clicked = true;
 				state.cursorPos = { x: e.clientX, y: e.clientY };
+				// クリックタイミングでbgm鳴ってなければ鳴らす
+				if ((state.bgm !== null) && !state.bgmPlaying){
+					state.bgm = loadAudio('bgm');
+					if (state.bgm !== null){
+						state.bgm.addEventListener('ended', onBgmEnded, false);
+						state.bgm.play();
+					}
+					state.bgmPlayng = true;
+				}
 				e.preventDefault();
 				e.stopPropagation;
+			};
+			var onCanPlayThrough = function(e){
+				state.bgm.play();
+			};
+			var onBgmEnded = function(e){
+				state.bgm.play();
 			};
 			var canvas = document.getElementById('screen');
 			canvas.addEventListener('mousedown', onMouseDown, false);
@@ -3556,11 +3583,26 @@ void main(){
 			canvas.addEventListener('touchmove', onTouchMove, false);
 			canvas.addEventListener('touchend', onTouchEnd, false);
 			canvas.addEventListener('click', onClickCanvas, false);
+
+			var testAudio = new Audio();
+			if (testAudio.canPlayType('audio/ogg')){
+				state.audioExt = '.ogg';
+			}else if (testAudio.canPlayType('audio/mp3')){
+				state.audioExt = '.mp3';
+			}
+
 			setResolution(canvas, requestAspect);
 			initializeGpu(canvas);
 			startBeforeLoad();
 			startLoad();
 			mainLoop();
+
+			// ツイート実験
+			var tweet = document.getElementById('tweet');
+			var tweetUrl = 'https://twitter.com/intent/tweet?text=';
+			tweetUrl += encodeURIComponent('プログラム試験投稿してみた。消す。');
+			tweetUrl += '&hashtags=hoge';
+			tweet.href = tweetUrl;
 		}());
 	</script>
 </body>
