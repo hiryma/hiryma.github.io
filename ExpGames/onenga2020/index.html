@@ -13,6 +13,11 @@
 			text-align: left;
 			float: left;
 		}
+
+		canvas {
+			border-style: solid;
+			border-width: 2px;
+		}
 		-->
 	</style>
 	<meta charset="utf-8">
@@ -23,7 +28,7 @@
 	<div class="center">
 		<canvas id="screen"></canvas>
 	</div>
-	<a href="" id="tweet" "target="_blank">ツイート実験</a>
+	<a href="" id="tweet" "target=" _blank">ツイート実験</a>
 
 	<script id="3dvs" type="x-shader/x-vertex">
 precision mediump float;
@@ -33,26 +38,37 @@ attribute vec3 aNormal;
 attribute vec2 aTexCoord;
 
 varying vec3 vNormal;
+varying vec3 vPosition;
 varying vec2 vTexCoord;
 
 uniform vec4 uTransform0;
 uniform vec4 uTransform1;
 uniform vec4 uTransform2;
 uniform vec4 uTransform3;
-uniform vec3 uToWorld0;
-uniform vec3 uToWorld1;
-uniform vec3 uToWorld2;
+uniform vec4 uToWorld0;
+uniform vec4 uToWorld1;
+uniform vec4 uToWorld2;
+uniform vec3 uToWorldNormal0;
+uniform vec3 uToWorldNormal1;
+uniform vec3 uToWorldNormal2;
 
 void main(){
 	vec4 p = vec4(aPosition.xyz, 1.0);
+
 	gl_Position.x = dot(uTransform0, p);
 	gl_Position.y = dot(uTransform1, p);
 	gl_Position.z = dot(uTransform2, p);
 	gl_Position.w = dot(uTransform3, p);
+
 	vTexCoord = aTexCoord;
-	vNormal.x = dot(uToWorld0, aNormal);
-	vNormal.y = dot(uToWorld1, aNormal);
-	vNormal.z = dot(uToWorld2, aNormal);
+
+	vNormal.x = dot(uToWorldNormal0, aNormal);
+	vNormal.y = dot(uToWorldNormal1, aNormal);
+	vNormal.z = dot(uToWorldNormal2, aNormal);
+
+	vPosition.x = dot(uToWorld0, p);
+	vPosition.y = dot(uToWorld1, p);
+	vPosition.z = dot(uToWorld2, p);
 }
 </script>
 
@@ -61,16 +77,48 @@ precision mediump float;
 uniform sampler2D uSampler;
 uniform vec4 uAlbedo;
 varying vec3 vNormal; // world
+varying vec3 vPosition; // world
 varying vec2 vTexCoord;
 
+vec2 fresnel2(float f0, vec2 eh_en){
+	vec2 t = vec2(1.0, 1.0) - eh_en;
+	vec2 t2 = t * t;
+	return vec2(f0, f0) + (t2 * t2 * t) * (1.0 - f0);
+}
+
 void main(){
-	vec4 c = texture2D(uSampler, vTexCoord) * uAlbedo;
-	vec3 lightVector = vec3(0.57, 0.57, -0.57);
-	vec3 ambient = vec3(0.2, 0.2, 0.2);
-	float dp = dot(vNormal, lightVector);
-	c.xyz *= dp;
-	c.xyz += ambient;
-	gl_FragColor = c;
+	float pi = 3.14159;
+	vec3 l = vec3(0.5773, 0.5773, -0.5773);
+	vec3 lightColor = vec3(0.4, 0.45, 0.5);
+	vec3 eyePosition = vec3(0.0, 0.0, -10.0);
+	vec3 ambient = vec3(0.6, 0.55, 0.5);
+	float f0 = 0.04;
+	float shininess = 256.0;
+
+	vec3 e = normalize(eyePosition - vPosition);
+	vec3 n = normalize(vNormal);
+	float nl = clamp(dot(n, l), 0.0, 1.0);
+	vec3 h = normalize(l + e);
+	float nh = clamp(dot(n, h), 0.0, 1.0);
+	float eh = clamp(dot(e, h), 0.0, 1.0);
+	float en = clamp(dot(e, n), 0.0, 1.0);
+	vec2 fresnels = fresnel2(f0, vec2(eh, en));
+
+	vec4 albedo = texture2D(uSampler, vTexCoord) * uAlbedo;
+	vec3 directDiffuse = lightColor * nl;
+	vec3 indirectDiffuse = ambient;
+	vec3 diffuse = (directDiffuse + indirectDiffuse) * albedo.xyz;
+
+	vec3 directSpecular = lightColor * (fresnels.x * pow(clamp(nh, 0.0, 1.0), shininess) * (shininess + 2.0) / (2.0 * pi));
+	vec3 indirectSpecular = ambient * fresnels.y;
+	vec3 specular = directSpecular + indirectSpecular;
+	specular /= (albedo.w == 0.0) ? 1.0 : albedo.w;
+//	gl_FragColor.xyz = e * 0.5 + 0.5;//vec3(eh, eh, eh);
+//	gl_FragColor.w = 1.0;
+//	return;
+
+	gl_FragColor.xyz = diffuse + specular;
+	gl_FragColor.w = albedo.w;
 }
 </script>
 
@@ -304,6 +352,7 @@ void main(){
 			this.mGl = null; //WebGlRenderingContext
 			this.mShader = null; //現在設定中のシェーダ
 			this.mVertexBuffer = null; //現在設定中の頂点バッファ
+			this.mIndexBuffer = null; //現在設定中のインデクスバッファ
 			this.mVertexFormat = null; //現在設定中の頂点フォーマット
 			this.mTextureMap = {}; //シェーダ内の名前とテクスチャオブジェクトの対応表
 			this.mDefaultTexture = null; //テクスチャなしで描画された時に自動で使う1x1の白テクスチャ
@@ -348,6 +397,15 @@ void main(){
 				name: 'fullScreenVbFlipV',
 				data: vbData
 			});
+			var ibData = new Uint16Array(3);
+			ibData[0] = 0;
+			ibData[1] = 1;
+			ibData[2] = 2;
+			this.mFullScreenIndexBuffer = new Kayac.IndexBuffer({
+				gpu: this,
+				name: 'fullScreenIb',
+				data: ibData
+			});
 
 			this.mFullScreenVertexFormat = {
 				stride: 16,
@@ -361,7 +419,7 @@ void main(){
 			gl.clearColor(1, 1, 1, 1);
 			gl.clearDepth(1);
 			gl.clear(gl.COLOR_BUFFER_BIT);
-			//			gl.cullFace(gl.FRONT); // TODO: 場合によっては必要になるかも。真面目に考えてない。
+			gl.cullFace(gl.FRONT); // TODO: 場合によっては必要になるかも。真面目に考えてない。
 
 			//エラーチェック
 			var e = gl.getError();
@@ -533,6 +591,10 @@ void main(){
 			this.mVertexBuffer = vb;
 		};
 
+		Kayac.Gpu.prototype.setIndexBuffer = function (ib) {
+			this.mIndexBuffer = ib;
+		};
+
 		Kayac.Gpu.prototype.draw = function (vertexCount, primitiveType, startVertexIndex) {
 			if (!(this.mShader)) {
 				throw 'Gpu.draw(): call setShader().';
@@ -542,6 +604,9 @@ void main(){
 			}
 			if (!(this.mVertexBuffer)) {
 				throw 'Gpu.draw(): call setVertexBuffer().';
+			}
+			if (!(this.mIndexBuffer)) {
+				throw 'Gpu.draw(): call setIndexBuffer().';
 			}
 			var gl = this.mGl;
 			var program = this.mShader.getGlObject();
@@ -589,6 +654,8 @@ void main(){
 			}
 			//頂点バッファ
 			gl.bindBuffer(gl.ARRAY_BUFFER, this.mVertexBuffer.getGlObject());
+			//インデクスバッファ
+			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.mIndexBuffer.getGlObject());
 			//頂点フォーマット
 			//一旦全部無効化。TODO:必要なのこれ？
 			var attribCount = gl.getParameter(gl.MAX_VERTEX_ATTRIBS);
@@ -612,7 +679,7 @@ void main(){
 				gl.POINTS,
 				gl.LINES];
 			var start = startVertexIndex || 0;
-			gl.drawArrays(prims[primitiveType], start, vertexCount);
+			gl.drawElements(prims[primitiveType], vertexCount, gl.UNSIGNED_SHORT, start * 2);
 		};
 
 		Kayac.Gpu.prototype.drawFullScreen = function (readsRenderTexture) {
@@ -624,6 +691,7 @@ void main(){
 			} else {
 				this.setVertexBuffer(this.mFullScreenVertexBuffer);
 			}
+			this.setIndexBuffer(this.mFullScreenIndexBuffer);
 			this.setVertexFormat(this.mFullScreenVertexFormat);
 			this.draw(3);
 			this.setVertexBuffer(vbBack);
@@ -817,6 +885,50 @@ void main(){
 		};
 
 		Kayac.VertexBuffer.prototype.getGlObject = function () {
+			return this.mGlObject;
+		};
+
+		//IndexBufferクラス
+		Kayac.IndexBuffer = function (arg) {
+			//メンバ変数
+			this.mGlObject = null;
+			this.mName = arg.name || ''; //名前。主にデバグ用。
+			this.mCount = 0; //頂点数
+			this.mGl = arg.gpu.getGl();
+
+			//処理本体
+			var gl = this.mGl; //たくさん使うので短く
+			if (!gl) { //gpu先に初期化しろよ
+				throw 'Kayac.VertexBuffer() Gpuクラスを渡してね！';
+			}
+			this.mGlObject = gl.createBuffer();
+			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.mGlObject);
+			if (arg.data) {
+				if ((arg.data instanceof Uint16Array) === false) {
+					throw 'Kayac.IndexBuffer() : 引数不正。dataはUint16Arrayだけにして';
+				}
+				gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, arg.data, gl.STATIC_DRAW);
+				this.mCount = arg.data.length;
+			} else if (arg.count) { //空で作ったらDynamic扱い
+				gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, arg.count * 2, gl.DYNAMIC_DRAW);
+				this.mCount = arg.count;
+			} else {
+				throw 'IndexBuffer() : invalid arg. data or count is mandatory.';
+			}
+			//エラーチェック
+			var e = gl.getError();
+			if (e !== gl.NO_ERROR) {
+				throw 'GL Error: ' + e;
+			}
+		};
+
+		Kayac.IndexBuffer.prototype.update = function (data) {
+			var gl = this.mGl;
+			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.mGlObject);
+			gl.bufferSubData(gl.ELEMENT_ARRAY_BUFFER, 0, data);
+		};
+
+		Kayac.IndexBuffer.prototype.getGlObject = function () {
 			return this.mGlObject;
 		};
 
@@ -1976,6 +2088,41 @@ void main(){
 			this.m11 *= v.y;
 		};
 
+		//M33
+		Kayac.M33 = function () {
+		};
+
+		Kayac.M33.setInvTranspose34 = function (out, a) {
+			var m00 = (a.m11 * a.m22) - (a.m12 * a.m21);
+			var m01 = (a.m12 * a.m20) - (a.m10 * a.m22);
+			var m02 = (a.m10 * a.m21) - (a.m11 * a.m20);
+
+			var m10 = (a.m21 * a.m02) - (a.m22 * a.m01);
+			var m11 = (a.m22 * a.m00) - (a.m20 * a.m02);
+			var m12 = (a.m20 * a.m01) - (a.m21 * a.m00);
+
+			var m20 = (a.m01 * a.m12) - (a.m02 * a.m11);
+			var m21 = (a.m02 * a.m10) - (a.m00 * a.m12);
+			var m22 = (a.m00 * a.m11) - (a.m01 * a.m10);
+
+			var det = (a.m00 * m00) + (a.m01 * m01) + (a.m02 * m02);
+			var rcpDet = 1 / det;
+
+			out.m00 = m00 * rcpDet;
+			out.m01 = m01 * rcpDet;
+			out.m02 = m02 * rcpDet;
+			out.m10 = m10 * rcpDet;
+			out.m11 = m11 * rcpDet;
+			out.m12 = m12 * rcpDet;
+			out.m20 = m20 * rcpDet;
+			out.m21 = m21 * rcpDet;
+			out.m22 = m22 * rcpDet;
+		};
+
+		Kayac.M33.prototype.setInvTranspose34 = function (a) {
+			Kayac.M33.setInvTranspose34(this, a);
+		};
+
 		//M34
 		Kayac.M34 = function () {
 		};
@@ -2206,7 +2353,7 @@ void main(){
 
 		Kayac.M44.prototype.setProjectionView = function (fieldOfViewY, aspect, nearZ, farZ, view) {
 			var m11 = 1 / Math.tan(fieldOfViewY * 0.5);
-			var m00 = m11 * aspect;
+			var m00 = m11 / aspect;
 			this.m00 = m00 * view.m00;
 			this.m01 = m00 * view.m01;
 			this.m02 = m00 * view.m02;
@@ -2294,62 +2441,150 @@ void main(){
 		Kayac.Mesh = function (shader, vertexFormat, name) {
 			this.name = name || 'unnamed mesh';
 			this.mVertexBuffer = null;
+			this.mIndexBuffer = null;
 			this.mShader = shader;
 			this.mVertexFormat = vertexFormat;
 			this.mVertexCount = 0;
 		};
 		Kayac.Mesh.prototype.setCube = function (gpu) {
 			var floatStride = this.mVertexFormat.stride / 4;
-			var data = new Float32Array(36 * floatStride); //36頂点
-			//TODO:
-			this.setVertex(data, 0, [-1, -1, -1], [-1, 0, 0], [0, 0]);
-			this.setVertex(data, 1, [-1, -1, 1], [-1, 0, 0], [0, 0]);
-			this.setVertex(data, 2, [-1, 1, 1], [-1, 0, 0], [0, 0]);
-			this.copyVertex(data, 3, 0);
-			this.copyVertex(data, 4, 2);
-			this.setVertex(data, 5, [-1, 1, -1], [-1, 0, 0], [0, 0]);
+			var data = new Float32Array(24 * floatStride); //24頂点
+			var uv = [0, 0];
+			var normal = [-1, 0, 0];
 
-			this.setVertex(data, 6, [1, -1, -1], [1, 0, 0], [0, 0]);
-			this.setVertex(data, 7, [1, -1, 1], [1, 0, 0], [0, 0]);
-			this.setVertex(data, 8, [1, 1, 1], [1, 0, 0], [0, 0]);
-			this.copyVertex(data, 9, 6);
-			this.copyVertex(data, 10, 8);
-			this.setVertex(data, 11, [1, 1, -1], [1, 0, 0], [0, 0]);
+			this.setVertex(data, 0, [-1, -1, -1], normal, uv);
+			this.setVertex(data, 1, [-1, -1, 1], normal, uv);
+			this.setVertex(data, 2, [-1, 1, 1], normal, uv);
+			this.setVertex(data, 3, [-1, 1, -1], normal, uv);
 
-			this.setVertex(data, 12, [-1, -1, -1], [0, -1, 0], [0, 0]);
-			this.setVertex(data, 13, [-1, -1, 1], [0, -1, 0], [0, 0]);
-			this.setVertex(data, 14, [1, -1, 1], [0, -1, 0], [0, 0]);
-			this.copyVertex(data, 15, 12);
-			this.copyVertex(data, 16, 14);
-			this.setVertex(data, 17, [1, -1, -1], [0, -1, 0], [0, 0]);
+			normal = [1, 0, 0];
+			this.setVertex(data, 4, [1, -1, -1], normal, uv);
+			this.setVertex(data, 5, [1, -1, 1], normal, uv);
+			this.setVertex(data, 6, [1, 1, 1], normal, uv);
+			this.setVertex(data, 7, [1, 1, -1], normal, uv);
 
-			this.setVertex(data, 18, [-1, 1, -1], [0, 1, 0], [0, 0]);
-			this.setVertex(data, 19, [-1, 1, 1], [0, 1, 0], [0, 0]);
-			this.setVertex(data, 20, [1, 1, 1], [0, 1, 0], [0, 0]);
-			this.copyVertex(data, 21, 18);
-			this.copyVertex(data, 22, 20);
-			this.setVertex(data, 23, [1, 1, -1], [0, 1, 0], [0, 0]);
+			normal = [0, -1, 0];
+			this.setVertex(data, 8, [-1, -1, -1], normal, uv);
+			this.setVertex(data, 9, [-1, -1, 1], normal, uv);
+			this.setVertex(data, 10, [1, -1, 1], normal, uv);
+			this.setVertex(data, 11, [1, -1, -1], normal, uv);
 
-			this.setVertex(data, 24, [-1, -1, -1], [0, 0, -1], [0, 0]);
-			this.setVertex(data, 25, [1, -1, -1], [0, 0, -1], [0, 0]);
-			this.setVertex(data, 26, [1, 1, -1], [0, 0, -1], [0, 0]);
-			this.copyVertex(data, 27, 24);
-			this.copyVertex(data, 28, 26);
-			this.setVertex(data, 29, [-1, 1, -1], [0, 0, -1], [0, 0]);
+			normal = [0, 1, 0];
+			this.setVertex(data, 12, [-1, 1, -1], normal, uv);
+			this.setVertex(data, 13, [-1, 1, 1], normal, uv);
+			this.setVertex(data, 14, [1, 1, 1], normal, uv);
+			this.setVertex(data, 15, [1, 1, -1], normal, uv);
 
-			this.setVertex(data, 30, [-1, -1, 1], [0, 0, 1], [0, 0]);
-			this.setVertex(data, 31, [1, -1, 1], [0, 0, 1], [0, 0]);
-			this.setVertex(data, 32, [1, 1, 1], [0, 0, 1], [0, 0]);
-			this.copyVertex(data, 33, 30);
-			this.copyVertex(data, 34, 32);
-			this.setVertex(data, 35, [-1, 1, 1], [0, 0, 1], [0, 0]);
+			normal = [0, 0, -1];
+			this.setVertex(data, 16, [-1, -1, -1], normal, uv);
+			this.setVertex(data, 17, [1, -1, -1], normal, uv);
+			this.setVertex(data, 18, [1, 1, -1], normal, uv);
+			this.setVertex(data, 19, [-1, 1, -1], normal, uv);
+
+			normal = [0, 0, 1];
+			this.setVertex(data, 20, [-1, -1, 1], normal, uv);
+			this.setVertex(data, 21, [1, -1, 1], normal, uv);
+			this.setVertex(data, 22, [1, 1, 1], normal, uv);
+			this.setVertex(data, 23, [-1, 1, 1], normal, uv);
 
 			this.mVertexBuffer = new Kayac.VertexBuffer({
 				gpu: gpu,
 				name: this.name + '_vb',
 				data: data
 			});
+			var indices = new Uint16Array(36);
+			for (var i = 0; i < 6; ++i) {
+				indices[(i * 6) + 0] = (i * 4) + 0;
+				indices[(i * 6) + 1] = (i * 4) + 1;
+				indices[(i * 6) + 2] = (i * 4) + 2;
+				indices[(i * 6) + 3] = (i * 4) + 3;
+				indices[(i * 6) + 4] = (i * 4) + 0;
+				indices[(i * 6) + 5] = (i * 4) + 2;
+			}
+			this.mIndexBuffer = new Kayac.IndexBuffer({
+				gpu: gpu,
+				name: this.name + '_ib',
+				data: new Uint16Array(indices)
+			});
 			this.mVertexCount = 36;
+		};
+		Kayac.Mesh.prototype.setSphere = function (gpu, hDiv, vDiv) {
+			if ((vDiv < 2) || (hDiv < 3)) {
+				throw 'setSphere(). invalid args. hDiv >= 3, vDiv >= 2';
+			}
+			var floatStride = this.mVertexFormat.stride / 4;
+			// 一旦重複しない頂点を生成して座標のみ入れていく
+			var vertexCount = ((vDiv - 1) * hDiv) + 2;
+			var vertices = new Float32Array(vertexCount * floatStride);
+			var p = [0, 1, 0];
+			var uv = [0, 0];
+			var index = 0;
+			this.setVertex(vertices, index, p, p, uv);
+			++index;
+			for (var vIndex = 1; vIndex < vDiv; ++vIndex) {
+				var phi = Math.PI * vIndex / vDiv;
+				p[1] = Math.cos(phi);
+				var xy = Math.sin(phi);
+				for (var hIndex = 0; hIndex < hDiv; ++hIndex) {
+					var theta = Math.PI * 2 * hIndex / hDiv;
+					p[0] = Math.cos(theta) * xy;
+					p[2] = Math.sin(theta) * xy;
+					this.setVertex(vertices, index, p, p, uv);
+					++index;
+				}
+			}
+			p[0] = 0;
+			p[1] = -1;
+			p[2] = 0;
+			this.setVertex(vertices, index, p, p, uv);
+			++index;
+			console.assert(index === vertexCount, index + " !== " + vertexCount);
+
+			var indexCount = ((vDiv - 2) * hDiv * 6) + (2 * hDiv * 3); // 南極と北極を除いた部分は帯ごとに6頂点、極は3頂点
+			var indices = new Uint16Array(indexCount);
+			// 北極
+			var northPole = 0;
+			index = 0;
+			for (var i = 0; i < hDiv; ++i) {
+				var hNext = ((i + 1) >= hDiv) ? 0 : (i + 1);
+				indices[index + 0] = northPole;
+				indices[index + 1] = 1 + hNext;
+				indices[index + 2] = 1 + i;
+				index += 3;
+			}
+			for (var vIndex = 1; vIndex < (vDiv - 1); ++vIndex) {
+				for (var hIndex = 0; hIndex < hDiv; ++hIndex) {
+					var hNext = ((hIndex + 1) >= hDiv) ? 0 : (hIndex + 1);
+					indices[index + 0] = 1 + ((vIndex - 1) * hDiv) + hIndex;
+					indices[index + 1] = 1 + ((vIndex - 1) * hDiv) + hNext;
+					indices[index + 2] = 1 + (vIndex * hDiv) + hIndex;
+					indices[index + 3] = 1 + (vIndex * hDiv) + hNext;
+					indices[index + 4] = indices[index + 2];
+					indices[index + 5] = indices[index + 1];
+					index += 6;
+				}
+			}
+			var southPole = vertexCount - 1;
+			for (var i = 0; i < hDiv; ++i) {
+				var hNext = ((i + 1) >= hDiv) ? 0 : (i + 1);
+				indices[index + 0] = southPole;
+				indices[index + 1] = 1 + ((vDiv - 2) * hDiv) + i;
+				indices[index + 2] = 1 + ((vDiv - 2) * hDiv) + hNext;
+				index += 3;
+			}
+			console.assert(index === indexCount, index + " !== " + indexCount);
+
+			this.mVertexBuffer = new Kayac.VertexBuffer({
+				gpu: gpu,
+				name: this.name + '_vb',
+				data: vertices
+			});
+			this.mIndexBuffer = new Kayac.IndexBuffer({
+				gpu: gpu,
+				name: this.name + '_ib',
+				data: indices
+			});
+			this.mVertexCount = indexCount;
 		};
 		Kayac.Mesh.generateVertexFormat = function () {
 			var ret = {
@@ -2374,14 +2609,21 @@ void main(){
 			Kayac.copyArray(data, offset + 3, normal, 0, 3);
 			Kayac.copyArray(data, offset + 6, texCoord, 0, 2);
 		};
-		Kayac.Mesh.prototype.copyVertex = function (data, dstIndex, srcIndex) {
-			var floatStride = this.mVertexFormat.stride / 4;
-			var dst = dstIndex * floatStride;
-			var src = srcIndex * floatStride;
-			Kayac.copyArray(data, dst, data, src, floatStride);
+		Kayac.Mesh.prototype.setVertex = function (
+			data,
+			index,
+			position,
+			normal,
+			texCoord) {
+
+			var offset = index * this.mVertexFormat.stride / 4;
+			Kayac.copyArray(data, offset + 0, position, 0, 3);
+			Kayac.copyArray(data, offset + 3, normal, 0, 3);
+			Kayac.copyArray(data, offset + 6, texCoord, 0, 2);
 		};
-		Kayac.Mesh.prototype.draw = function (gpu, pvwMatrix, wMatrix, albedo) {
+		Kayac.Mesh.prototype.draw = function (gpu, pvwMatrix, wMatrix, wMatrixInvTransposed, albedo) {
 			gpu.setVertexBuffer(this.mVertexBuffer);
+			gpu.setIndexBuffer(this.mIndexBuffer);
 			gpu.setShader(this.mShader);
 			gpu.setVertexFormat(this.mVertexFormat);
 
@@ -2390,10 +2632,16 @@ void main(){
 			gpu.setConstant('uTransform1', [m.m10, m.m11, m.m12, m.m13]);
 			gpu.setConstant('uTransform2', [m.m20, m.m21, m.m22, m.m23]);
 			gpu.setConstant('uTransform3', [m.m30, m.m31, m.m32, m.m33]);
+
 			m = wMatrix; // 別名
-			gpu.setConstant('uToWorld0', [m.m00, m.m01, m.m02]);
-			gpu.setConstant('uToWorld1', [m.m10, m.m11, m.m12]);
-			gpu.setConstant('uToWorld2', [m.m20, m.m21, m.m22]);
+			gpu.setConstant('uToWorld0', [m.m00, m.m01, m.m02, m.m03]);
+			gpu.setConstant('uToWorld1', [m.m10, m.m11, m.m12, m.m13]);
+			gpu.setConstant('uToWorld2', [m.m20, m.m21, m.m22, m.m23]);
+
+			m = wMatrixInvTransposed; // 別名
+			gpu.setConstant('uToWorldNormal0', [m.m00, m.m01, m.m02]);
+			gpu.setConstant('uToWorldNormal1', [m.m10, m.m11, m.m12]);
+			gpu.setConstant('uToWorldNormal2', [m.m20, m.m21, m.m22]);
 
 			gpu.setConstant('uAlbedo', albedo);
 			// TODO: ライトパラメタ
@@ -2402,7 +2650,7 @@ void main(){
 
 		// Camera3d
 		Kayac.Camera3d = function () {
-			this.fieldOfViewY = Math.PI / 6; //初期値60度
+			this.fieldOfViewY = Math.PI / 3; //初期値60度
 			this.aspect = 1;
 			this.position = [0, 0, 0]; //原点配置
 			this.rotation = new Kayac.Q();
@@ -2474,12 +2722,24 @@ void main(){
 			shader) {
 
 			var stride = vertexFormat.stride;
-			var vertexBufferSize = spriteCapacity * 6 * stride;
+			var vertexBufferSize = spriteCapacity * 4 * stride;
+
 			this.mInstances = [];
 			this.mGpu = gpu;
 			this.mShader = shader;
 			this.mVertexFormat = vertexFormat;
 			this.mVertexBuffer = new Kayac.VertexBuffer({ gpu: gpu, name: 'spriteRendererVb', size: vertexBufferSize });
+			// インデクスバッファは最初に作って終わり
+			var ibData = new Uint16Array(spriteCapacity * 6);
+			for (var i = 0; i < spriteCapacity; i++) {
+				ibData[(i * 6) + 0] = (i * 4) + 0;
+				ibData[(i * 6) + 1] = (i * 4) + 1;
+				ibData[(i * 6) + 2] = (i * 4) + 2;
+				ibData[(i * 6) + 3] = (i * 4) + 3;
+				ibData[(i * 6) + 4] = (i * 4) + 0;
+				ibData[(i * 6) + 5] = (i * 4) + 2;
+			}
+			this.mIndexBuffer = new Kayac.IndexBuffer({ gpu: gpu, name: 'spriteRendererIb', data: ibData });
 			this.parentWidth = 0;
 			this.parentHeight = 0;
 		};
@@ -2493,7 +2753,7 @@ void main(){
 		Kayac.SpriteRenderer.prototype.draw = function (gpu, cameraMatrix) {
 			// 全頂点バッファを生成
 			var floatStride = this.mVertexFormat.stride / 4;
-			var buffer = new Float32Array(this.mInstances.length * 6 * floatStride);
+			var buffer = new Float32Array(this.mInstances.length * 4 * floatStride);
 			var offset = 0;
 			var tmpOrigin = Kayac.V2.createXy(0, 0);
 			for (var i = 0; i < this.mInstances.length; i++) {
@@ -2504,6 +2764,7 @@ void main(){
 
 			// 描画 TODO: DrawCallのマージ
 			gpu.setVertexBuffer(this.mVertexBuffer);
+			gpu.setIndexBuffer(this.mIndexBuffer);
 			gpu.setShader(this.mShader);
 			gpu.setVertexFormat(this.mVertexFormat);
 			gpu.setConstant('uTransform0', [cameraMatrix.m00, cameraMatrix.m01, cameraMatrix.m02]);
@@ -2521,39 +2782,11 @@ void main(){
 			this.getOrigin(tmpOrigin, sprite, transform);
 			var u = sprite.texcoordOffset[0] + transform.texcoordOffset[0];
 			var v = sprite.texcoordOffset[1] + transform.texcoordOffset[1];
-			// 右下
-			buffer[offset + 0] = tmpOrigin.x + sprite.size[0];
-			buffer[offset + 1] = tmpOrigin.y + sprite.size[1];
-			buffer[offset + 2] = u + sprite.texcoordSize[0];
-			buffer[offset + 3] = v + sprite.texcoordSize[1];
-			offset += floatStride;
-
-			// 右上
-			buffer[offset + 0] = tmpOrigin.x + sprite.size[0];
-			buffer[offset + 1] = tmpOrigin.y;
-			buffer[offset + 2] = u + sprite.texcoordSize[0];
-			buffer[offset + 3] = v;
-			offset += floatStride;
-
 			// 左下
 			buffer[offset + 0] = tmpOrigin.x;
 			buffer[offset + 1] = tmpOrigin.y + sprite.size[1];
 			buffer[offset + 2] = u;
 			buffer[offset + 3] = v + sprite.texcoordSize[1];
-			offset += floatStride;
-
-			// 左下
-			buffer[offset + 0] = buffer[offset - 4];
-			buffer[offset + 1] = buffer[offset - 3];
-			buffer[offset + 2] = buffer[offset - 2];
-			buffer[offset + 3] = buffer[offset - 1];
-			offset += floatStride;
-
-			// 右上
-			buffer[offset + 0] = buffer[offset - 12];
-			buffer[offset + 1] = buffer[offset - 11];
-			buffer[offset + 2] = buffer[offset - 10];
-			buffer[offset + 3] = buffer[offset - 9];
 			offset += floatStride;
 
 			// 左上
@@ -2562,6 +2795,21 @@ void main(){
 			buffer[offset + 2] = u;
 			buffer[offset + 3] = v;
 			offset += floatStride;
+
+			// 右上
+			buffer[offset + 0] = tmpOrigin.x + sprite.size[0];
+			buffer[offset + 1] = tmpOrigin.y;
+			buffer[offset + 2] = u + sprite.texcoordSize[0];
+			buffer[offset + 3] = v;
+			offset += floatStride;
+
+			// 右下
+			buffer[offset + 0] = tmpOrigin.x + sprite.size[0];
+			buffer[offset + 1] = tmpOrigin.y + sprite.size[1];
+			buffer[offset + 2] = u + sprite.texcoordSize[0];
+			buffer[offset + 3] = v + sprite.texcoordSize[1];
+			offset += floatStride;
+
 			return offset;
 		};
 		Kayac.SpriteRenderer.prototype.getOrigin = function (originOut, sprite, transform) {
@@ -2821,7 +3069,7 @@ void main(){
 			{
 				"name": "result_flame_bg",
 				"pivot": [0.5, 0.5],
-				"anchor": [0.5, 0.85],
+				"anchor": [0.5, 0.8],
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
@@ -2829,7 +3077,7 @@ void main(){
 			{
 				"name": "result_text_cyoubiun",
 				"pivot": [0.5, 0.5],
-				"anchor": [0.5, 0.85],
+				"anchor": [0.5, 0.8],
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
@@ -2837,7 +3085,7 @@ void main(){
 			{
 				"name": "result_text_cyubiun",
 				"pivot": [0.5, 0.5],
-				"anchor": [0.5, 0.85],
+				"anchor": [0.5, 0.8],
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
@@ -2845,7 +3093,7 @@ void main(){
 			{
 				"name": "result_text_cyubsyuuun",
 				"pivot": [0.5, 0.5],
-				"anchor": [0.5, 0.85],
+				"anchor": [0.5, 0.8],
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
@@ -2853,7 +3101,7 @@ void main(){
 			{
 				"name": "result_text_daibiun",
 				"pivot": [0.5, 0.5],
-				"anchor": [0.5, 0.85],
+				"anchor": [0.5, 0.8],
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
@@ -2861,7 +3109,7 @@ void main(){
 			{
 				"name": "result_text_daibsyuuun",
 				"pivot": [0.5, 0.5],
-				"anchor": [0.5, 0.85],
+				"anchor": [0.5, 0.8],
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
@@ -2877,7 +3125,7 @@ void main(){
 			{
 				"name": "result_text_syobiun",
 				"pivot": [0.5, 0.5],
-				"anchor": [0.5, 0.85],
+				"anchor": [0.5, 0.8],
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
@@ -2885,7 +3133,7 @@ void main(){
 			{
 				"name": "result_text_syobsyuuun",
 				"pivot": [0.5, 0.5],
-				"anchor": [0.5, 0.85],
+				"anchor": [0.5, 0.8],
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
@@ -2893,7 +3141,7 @@ void main(){
 			{
 				"name": "title",
 				"pivot": [0.5, 0.5],
-				"anchor": [0.5, 0.15],
+				"anchor": [0.5, 0.1],
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
@@ -2901,7 +3149,7 @@ void main(){
 			{
 				"name": "text_setsumei",
 				"pivot": [0.5, 0.5],
-				"anchor": [0.5, 0.75],
+				"anchor": [0.5, 0.8],
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
@@ -2909,7 +3157,7 @@ void main(){
 			{
 				"name": "result_text01",
 				"pivot": [0.5, 0.5],
-				"anchor": [0.5, 0.73],
+				"anchor": [0.5, 0.7],
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
@@ -2917,7 +3165,7 @@ void main(){
 			{
 				"name": "result_text03",
 				"pivot": [0.5, 0.5],
-				"anchor": [0.5, 0.97],
+				"anchor": [0.5, 0.9],
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
@@ -2925,7 +3173,7 @@ void main(){
 			{
 				"name": "text_bottom",
 				"pivot": [0.5, 0.5],
-				"anchor": [0.5, 0.15],
+				"anchor": [0.5, 0.1],
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
@@ -2933,7 +3181,7 @@ void main(){
 			{
 				"name": "text_middle",
 				"pivot": [0.5, 0.5],
-				"anchor": [0.5, 0.15],
+				"anchor": [0.5, 0.1],
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
@@ -2941,7 +3189,7 @@ void main(){
 			{
 				"name": "btm_start",
 				"pivot": [0.5, 0.5],
-				"anchor": [0.5, 0.9],
+				"anchor": [0.5, 0.95],
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
@@ -2965,15 +3213,15 @@ void main(){
 			{
 				"name": "text_top",
 				"pivot": [0.5, 0.5],
-				"anchor": [0.5, 0.15],
+				"anchor": [0.5, 0.1],
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
 			},
 			{
 				"name": "btm_retry",
-				"pivot": [0.5, 0.5],
-				"anchor": [0.8, 0.95],
+				"pivot": [1, 1],
+				"anchor": [0.99, 0.99],
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
@@ -2989,7 +3237,7 @@ void main(){
 			{
 				"name": "result_balance_beautiful",
 				"pivot": [1, 0.5],
-				"anchor": [1, 0.65],
+				"anchor": [1, 0.64],
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
@@ -3029,7 +3277,7 @@ void main(){
 			{
 				"name": "result_balance_ugly",
 				"pivot": [1, 0.5],
-				"anchor": [1, 0.65],
+				"anchor": [1, 0.64],
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
@@ -3037,19 +3285,11 @@ void main(){
 			{
 				"name": "result_size",
 				"pivot": [1, 0.5],
-				"anchor": [1, 0.51],
+				"anchor": [1, 0.52],
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
 			},
-			{
-				"name": "result_flame",
-				"pivot": [0.5, 0.5],
-				"anchor": [0.5, 0.75],
-				"scale": [1, 1],
-				"position": [0, 0],
-				"texcoordOffset": [0, 0],
-			}
 		];
 
 	</script>
@@ -3065,6 +3305,13 @@ void main(){
 			var requestAspect = 9 / 16;
 			var logicalWidth = 720;
 			var logicalHeight = logicalWidth / requestAspect;
+			var plateThickness = 0.8;
+			var plateInterval = 0.6;
+			var scaleMin = 0.1;
+			var scaleMax = 3;
+			var bottomScaleSpeed = 1;
+			var middleScaleSpeed = 2;
+			var topScaleSpeed = 3;
 
 			//フレームをまたいで保持するデータ
 			var state = {
@@ -3095,7 +3342,6 @@ void main(){
 				deltaTime: 0,
 				scene: null,
 				bgm: null,
-				bgmPlaying: false,
 				audioExt: null
 			};
 			var setResolution = function (canvas, requestAspect) {
@@ -3108,8 +3354,9 @@ void main(){
 				} else { // 縦合わせ
 					windowWidth = Math.floor(windowHeight * requestAspect);
 				}
-				canvas.width = windowWidth;
-				canvas.height = windowHeight;
+				// 少し余らせる
+				canvas.width = Math.round(windowWidth * 0.9);
+				canvas.height = Math.round(windowHeight * 0.9);
 				console.log('logical: ' + logicalWidth + 'x' + logicalHeight + ' actual: ' + windowWidth + 'x' + windowHeight);
 			};
 
@@ -3128,6 +3375,9 @@ void main(){
 			};
 			var titleScene = {
 				name: 'title',
+				initialize: function () {
+					resetUnkoScale();
+				},
 				update: function () {
 					if (state.clicked === true) {
 						changeScene(gameScene);
@@ -3164,29 +3414,51 @@ void main(){
 			var gameScene = {
 				name: 'game',
 				progress: 0,
+				scaleSpeed: 0,
 				initialize: function () {
 					this.progress = 0;
+					this.scaleSpeed = bottomScaleSpeed;
 				},
 				update: function () {
 					console.log(this.progress);
 					if (this.progress === 0) {
 						if (state.clicked === true) {
 							this.progress += 1;
+							this.scaleSpeed = middleScaleSpeed;
 						}
-						var s = Math.sin(state.time * 0.001);
-						state.bottomTransform.scale = Kayac.V3.createXyz(s, 1 / 3, s);
+						var s = state.bottomTransform.scale.x;
+						s += this.scaleSpeed * state.deltaTime;
+						if (s > scaleMax) {
+							this.scaleSpeed = -Math.abs(this.scaleSpeed);
+						} else if (s < scaleMin) {
+							this.scaleSpeed = Math.abs(this.scaleSpeed);
+						}
+						state.bottomTransform.scale = Kayac.V3.createXyz(s, plateThickness, s);
 					} else if (this.progress === 1) {
 						if (state.clicked === true) {
 							this.progress += 1;
+							this.scaleSpeed = topScaleSpeed;
 						}
-						var s = Math.sin(state.time * 0.001);
-						state.middleTransform.scale = Kayac.V3.createXyz(s, 1 / 3, s);
+						var s = state.middleTransform.scale.x;
+						s += this.scaleSpeed * state.deltaTime;
+						if (s > scaleMax) {
+							this.scaleSpeed = -Math.abs(this.scaleSpeed);
+						} else if (s < scaleMin) {
+							this.scaleSpeed = Math.abs(this.scaleSpeed);
+						}
+						state.middleTransform.scale = Kayac.V3.createXyz(s, plateThickness, s);
 					} else if (this.progress === 2) {
 						if (state.clicked === true) {
 							changeScene(resultScene);
 						}
-						var s = Math.sin(state.time * 0.001);
-						state.topTransform.scale = Kayac.V3.createXyz(s, 1 / 3, s);
+						var s = state.topTransform.scale.x;
+						s += this.scaleSpeed * state.deltaTime;
+						if (s > scaleMax) {
+							this.scaleSpeed = -Math.abs(this.scaleSpeed);
+						} else if (s < scaleMin) {
+							this.scaleSpeed = Math.abs(this.scaleSpeed);
+						}
+						state.topTransform.scale = Kayac.V3.createXyz(s, plateThickness, s);
 					}
 
 					var av = Kayac.V3.createXyz(0.2, 0.3, 0.5);
@@ -3201,9 +3473,9 @@ void main(){
 					var camera3dMatrix = state.camera3d.getMatrix();
 					drawUnko(
 						camera3dMatrix,
-						this.progress !== 0,
-						this.progress !== 1,
-						this.progress !== 2);
+						this.progress < 0,
+						this.progress < 1,
+						this.progress < 2);
 
 					state.gpu.setBlendEnabled(true); // アルファブレンド
 					state.gpu.setDepthTest(false, false); // Zテストしないし書き込まない
@@ -3222,6 +3494,27 @@ void main(){
 			};
 			var resultScene = {
 				name: 'result',
+				sizeScore: 0,
+				balanceScore: 0,
+				initialize: function () {
+					// 採点。絶対仕様変わるよね
+					var bottomSize = state.bottomTransform.scale.x;
+					var middleSize = state.middleTransform.scale.x;
+					var topSize = state.topTransform.scale.x;
+					var sizeSum = bottomSize + middleSize + topSize;
+					if (sizeSum >= 6){
+						this.sizeScore = 2;
+					}else if (sizeSum >= 3){
+						this.sizeScore = 1;
+					}else{
+						this.sizeScore = 0;
+					}
+					if ((bottomSize > middleSize) && (middleSize > topSize)){
+						this.balanceScore = 1;
+					}else{
+						this.balanceScore = 0;
+					}
+				},
 				update: function () {
 					if (state.clicked === true) {
 						changeScene(titleScene);
@@ -3250,8 +3543,8 @@ void main(){
 					addSprite('result_size');
 					addSprite('result_balance');
 					addSprite('btm_retry');
-					var size = 0;
-					var balance = 0;
+					var size = this.sizeScore;
+					var balance = this.balanceScore;
 					if (size === 0) {
 						addSprite('result_size_small');
 						if (balance === 0) {
@@ -3291,7 +3584,7 @@ void main(){
 
 			var initializeGpu = function (canvas) {
 				state.gpu = new Kayac.Gpu({ canvas: canvas });
-				state.gpu.setFaceCullingEnabled(false); // TODO: 後で戻した方が性能は上がるが誤差だろうたぶん
+				state.gpu.setFaceCullingEnabled(true); // TODO: 後で戻した方が性能は上がるが誤差だろうたぶん
 				state.shader3d = new Kayac.Shader({
 					gpu: state.gpu,
 					name: 'shader3d',
@@ -3316,11 +3609,13 @@ void main(){
 				state.spriteRenderer.parentWidth = logicalWidth;
 				state.spriteRenderer.parentHeight = logicalHeight;
 				state.bottomMesh = new Kayac.Mesh(state.shader3d, state.vertexFormat3d, 'unkoBottom');
-				state.bottomMesh.setCube(state.gpu);
+				var hDiv = 64;
+				var vDiv = 16;
+				state.bottomMesh.setSphere(state.gpu, hDiv, vDiv);
 				state.middleMesh = new Kayac.Mesh(state.shader3d, state.vertexFormat3d, 'middleBottom');
-				state.middleMesh.setCube(state.gpu);
+				state.middleMesh.setSphere(state.gpu, hDiv, vDiv);
 				state.topMesh = new Kayac.Mesh(state.shader3d, state.vertexFormat3d, 'topBottom');
-				state.topMesh.setCube(state.gpu);
+				state.topMesh.setSphere(state.gpu, hDiv, vDiv);
 			};
 			var mainLoop = function () {
 				var now = Date.now();
@@ -3345,8 +3640,10 @@ void main(){
 				state.scene = loadingScene;
 				state.time = Date.now();
 				state.camera3d = new Kayac.Camera3d();
-				state.camera3d.position = [0, 0, -10];
+				state.camera3d.position = [0, -1, -10];
 				state.camera3d.farClip = 100;
+				state.camera3d.aspect = logicalWidth / logicalHeight;
+
 				state.camera2d = new Kayac.Camera2d();
 				state.camera2d.setProjection(logicalWidth, logicalHeight);
 				state.camera2d.position = [logicalWidth / 2, logicalHeight / 2];
@@ -3369,6 +3666,11 @@ void main(){
 				Kayac.startLoadImage('bg.png', 'bg', onImageLoad);
 				Kayac.startLoadImage('uiAtlas.png', 'uiAtlas', onImageLoad);
 			};
+			var resetUnkoScale = function () {
+				state.bottomTransform.scale = Kayac.V3.createXyz(2, plateThickness, 2);
+				state.middleTransform.scale = Kayac.V3.createXyz(1.5, plateThickness, 1.5);
+				state.topTransform.scale = Kayac.V3.createXyz(1, plateThickness, 1);
+			};
 			var startAfterLoad = function () {
 				// 背景
 				var sprite = new Kayac.Sprite();
@@ -3377,7 +3679,6 @@ void main(){
 				var backgroundTiling = 1.5;
 				sprite.size = [logicalWidth, logicalHeight];
 				sprite.texcoordSize = [backgroundTiling, 2 * backgroundTiling * logicalHeight / logicalWidth];
-
 				var backInstance = new Kayac.SpriteInstance();
 				backInstance.sprite = sprite;
 				backInstance.transform = new Kayac.Transform2d();
@@ -3392,13 +3693,10 @@ void main(){
 				state.middleTransform = new Kayac.Transform();
 				state.topTransform = new Kayac.Transform();
 
-				state.bottomTransform.position = Kayac.V3.createXyz(0, -1, 0);
-				state.bottomTransform.scale = Kayac.V3.createXyz(1, 1 / 3, 1);
+				state.bottomTransform.position = Kayac.V3.createXyz(0, -plateInterval * 2, 0);
+				state.topTransform.position = Kayac.V3.createXyz(0, plateInterval * 2, 0);
 
-				state.middleTransform.scale = Kayac.V3.createXyz(1, 1 / 3, 1);
-
-				state.topTransform.position = Kayac.V3.createXyz(0, 1, 0);
-				state.topTransform.scale = Kayac.V3.createXyz(1, 1 / 3, 1);
+				resetUnkoScale();
 
 				// UI系初期化
 				// Transformをまず辞書化
@@ -3424,9 +3722,9 @@ void main(){
 					state.spriteInstances[item.name] = instance;
 				}
 			};
-			var loadAudio = function(name){
+			var loadAudio = function (name) {
 				var ret = null;
-				if (state.audioExt !== null){
+				if (state.audioExt !== null) {
 					var path = name + state.audioExt;
 					ret = new Audio(path);
 				}
@@ -3462,15 +3760,15 @@ void main(){
 
 				state.matrixStack.pop();
 			};
-			var setUnkoTransparency = function(albedoOut, isTransparent){
-				if (isTransparent){
+			var setUnkoTransparency = function (albedoOut, isTransparent) {
+				if (isTransparent) {
 					state.gpu.setBlendEnabled(true);
 					state.gpu.setDepthTest(true, false);
 					albedoOut[0] = 0.5;
 					albedoOut[1] = 0.5;
 					albedoOut[2] = 0.5;
-					albedoOut[3] = 0.3;
-				}else{
+					albedoOut[3] = 0.5;
+				} else {
 					state.gpu.setBlendEnabled(false);
 					state.gpu.setDepthTest(true, true);
 					albedoOut[0] = 1;
@@ -3484,7 +3782,9 @@ void main(){
 				state.matrixStack.pushMul(m);
 				var wm = state.matrixStack.top();
 				pvwm.setMul44x34(pvm, wm);
-				state.topMesh.draw(state.gpu, pvwm, wm, albedo);
+				var nm = new Kayac.M33(); // 法線変換行列
+				nm.setInvTranspose34(wm);
+				state.topMesh.draw(state.gpu, pvwm, wm, nm, albedo);
 				state.matrixStack.pop();
 			};
 			var drawBackground = function (camera2dMatrix) {
@@ -3557,21 +3857,20 @@ void main(){
 				state.clicked = true;
 				state.cursorPos = { x: e.clientX, y: e.clientY };
 				// クリックタイミングでbgm鳴ってなければ鳴らす
-				if ((state.bgm !== null) && !state.bgmPlaying){
+				if (state.bgm === null) {
 					state.bgm = loadAudio('bgm');
-					if (state.bgm !== null){
+					if (state.bgm !== null) {
 						state.bgm.addEventListener('ended', onBgmEnded, false);
 						state.bgm.play();
 					}
-					state.bgmPlayng = true;
 				}
 				e.preventDefault();
 				e.stopPropagation;
 			};
-			var onCanPlayThrough = function(e){
+			var onCanPlayThrough = function (e) {
 				state.bgm.play();
 			};
-			var onBgmEnded = function(e){
+			var onBgmEnded = function (e) {
 				state.bgm.play();
 			};
 			var canvas = document.getElementById('screen');
@@ -3585,9 +3884,9 @@ void main(){
 			canvas.addEventListener('click', onClickCanvas, false);
 
 			var testAudio = new Audio();
-			if (testAudio.canPlayType('audio/ogg')){
+			if (testAudio.canPlayType('audio/ogg')) {
 				state.audioExt = '.ogg';
-			}else if (testAudio.canPlayType('audio/mp3')){
+			} else if (testAudio.canPlayType('audio/mp3')) {
 				state.audioExt = '.mp3';
 			}
 
