@@ -2733,7 +2733,6 @@ void main(){
 		Kayac.SpringDamper.prototype.update = function(dt){
 			var d = this.goal - this.value;
 			var a = (d * this.stiffness) - (this.velocity * this.damping);
-			console.log(this.value + "  " + this.velocity + ' ' + a + ' ' + this.goal + ' ' + this.value);
 			this.velocity += a * dt;
 			this.value += this.velocity * dt;
 		};
@@ -3570,7 +3569,7 @@ void main(){
 				deltaTime: 0,
 				scene: null,
 				bgm: null,
-				audioExt: null
+				audioExt: null,
 			};
 			var setResolution = function (canvas, requestAspect) {
 				var windowWidth = window.innerWidth;
@@ -3586,6 +3585,16 @@ void main(){
 				canvas.width = Math.round(windowWidth * 0.9);
 				canvas.height = Math.round(windowHeight * 0.9);
 				console.log('logical: ' + logicalWidth + 'x' + logicalHeight + ' actual: ' + windowWidth + 'x' + windowHeight);
+			};
+			var updateUnkoRotation = function(){
+				var qx = new Kayac.Q();
+				var rotX = Math.PI * (0.25 + (0.125 * Math.sin(state.time * 0.0007)));
+				qx.setRotation(Kayac.V3.createXyz(1, 0, 0), rotX);
+				var qy = new Kayac.Q();
+				qy.setRotation(Kayac.V3.createXyz(0, 1, 0), state.time * 0.001);
+				var q = new Kayac.Q();
+				q.setMul(qy, qx);
+				state.unkoTransform.rotation = q;
 			};
 
 			var loadingScene = {
@@ -3612,9 +3621,7 @@ void main(){
 					if (state.justDown === true) {
 						changeScene(gameScene);
 					}
-					// 雑
-					var av = Kayac.V3.createXyz(0.2, 0.3, 0.5);
-					state.unkoTransform.rotation.integrate(av, state.deltaTime);
+					updateUnkoRotation();
 				},
 				draw: function () {
 					state.gpu.clear(1, 1, 1, 1); // まずクリア。バグってるかわかるように派手ピンクで塗る
@@ -3653,7 +3660,6 @@ void main(){
 					button.setAnimation(uiAnimations['button_loop']);
 				},
 				update: function () {
-					console.log(this.progress);
 					if (this.progress === 0) {
 						if (state.justDown === true) {
 							this.progress += 1;
@@ -3693,9 +3699,7 @@ void main(){
 						}
 						state.topTransform.scale = Kayac.V3.createXyz(s, plateThickness, s);
 					}
-
-					var av = Kayac.V3.createXyz(0.2, 0.3, 0.5);
-					state.unkoTransform.rotation.integrate(av, state.deltaTime);
+					updateUnkoRotation();
 				},
 				draw: function () {
 					state.gpu.clear(1, 1, 1, 1); // まずクリア。バグってるかわかるように派手ピンクで塗る
@@ -3753,9 +3757,7 @@ void main(){
 					if (state.justDown === true) {
 						changeScene(titleScene);
 					}
-					// 雑
-					var av = Kayac.V3.createXyz(0.2, 0.3, 0.5);
-					state.unkoTransform.rotation.integrate(av, state.deltaTime);
+					updateUnkoRotation();
 				},
 				draw: function () {
 					state.gpu.clear(1, 1, 1, 1); // まずクリア。バグってるかわかるように派手ピンクで塗る
