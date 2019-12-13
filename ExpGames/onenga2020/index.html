@@ -89,9 +89,10 @@ vec2 fresnel2(float f0, vec2 eh_en){
 void main(){
 	float pi = 3.14159;
 	vec3 l = vec3(0.5773, 0.5773, -0.5773);
-	vec3 lightColor = vec3(0.4, 0.45, 0.5);
+	vec3 lightColor = vec3(0.5, 0.5, 0.5);
 	vec3 eyePosition = vec3(0.0, 0.0, -10.0);
-	vec3 ambient = vec3(0.6, 0.55, 0.5);
+	vec3 ambientDown = vec3(0.5, 0.5, 0.5);
+	vec3 ambientUp = vec3(0.4, 0.5, 0.6);
 	float f0 = 0.04;
 	float shininess = 256.0;
 
@@ -103,14 +104,15 @@ void main(){
 	float eh = clamp(dot(e, h), 0.0, 1.0);
 	float en = clamp(dot(e, n), 0.0, 1.0);
 	vec2 fresnels = fresnel2(f0, vec2(eh, en));
+	float ry = -e.y + (n.y * (2.0 * en));
 
 	vec4 albedo = texture2D(uSampler, vTexCoord) * uAlbedo;
 	vec3 directDiffuse = lightColor * nl;
-	vec3 indirectDiffuse = ambient;
+	vec3 indirectDiffuse = mix(ambientDown, ambientUp, (n.y * 0.5) + 0.5);
 	vec3 diffuse = (directDiffuse + indirectDiffuse) * albedo.xyz;
 
 	vec3 directSpecular = lightColor * (fresnels.x * pow(clamp(nh, 0.0, 1.0), shininess) * (shininess + 2.0) / (2.0 * pi));
-	vec3 indirectSpecular = ambient * fresnels.y;
+	vec3 indirectSpecular = mix(ambientDown, ambientUp, (ry * 0.5) + 0.5) * fresnels.y;
 	vec3 specular = directSpecular + indirectSpecular;
 	specular /= (albedo.w == 0.0) ? 1.0 : albedo.w;
 //	gl_FragColor.xyz = e * 0.5 + 0.5;//vec3(eh, eh, eh);
@@ -126,7 +128,9 @@ void main(){
 precision mediump float;
 attribute vec2 aPosition;
 attribute vec2 aTexCoord;
+attribute vec4 aColor;
 varying vec2 vTexCoord;
+varying vec4 vColor;
 uniform vec3 uTransform0;
 uniform vec3 uTransform1;
 
@@ -137,6 +141,7 @@ void main(){
 	gl_Position.z = -1.0;
 	gl_Position.w = 1.0;
 	vTexCoord = aTexCoord;
+	vColor = aColor;
 }
 </script>
 
@@ -144,9 +149,10 @@ void main(){
 precision mediump float;
 uniform sampler2D uSampler;
 varying vec2 vTexCoord;
+varying vec4 vColor;
 
 void main(){
-	gl_FragColor = texture2D(uSampler, vTexCoord);
+	gl_FragColor = texture2D(uSampler, vTexCoord) * vColor;
 }
 </script>
 
@@ -2709,10 +2715,148 @@ void main(){
 			this.texcoordSize = [1, 1];
 		};
 
+		// SpringDamper
+		Kayac.SpringDamper = function(){
+			this.value = 0;
+			this.goal = 0;
+			this.velocity = 0;
+			this.stiffness = 0;
+			this.damping = 0;
+		};
+		Kayac.SpringDamper.prototype.setData = function(data){
+			this.value = data.start;
+			this.goal = data.goal;
+			this.velocity = data.velocity;
+			this.stiffness = data.stiffness;
+			this.damping = data.damping;
+		};
+		Kayac.SpringDamper.prototype.update = function(dt){
+			var d = this.goal - this.value;
+			var a = (d * this.stiffness) - (this.velocity * this.damping);
+			console.log(this.value + "  " + this.velocity + ' ' + a + ' ' + this.goal + ' ' + this.value);
+			this.velocity += a * dt;
+			this.value += this.velocity * dt;
+		};
+		Kayac.SpringDamper.prototype.converge = function(){
+			this.velocity = 0;
+			this.value = this.goal;
+		};
+
+		// SpringDamper2
+		Kayac.SpringDamper2 = function(){
+			this.value = Kayac.V2.createXy(0, 0);
+			this.goal = Kayac.V2.createXy(0, 0);
+			this.velocity = Kayac.V2.createXy(0, 0);
+			this.stiffness = 0;
+			this.damping = 0;
+		};
+		Kayac.SpringDamper2.prototype.setData = function(data){
+			this.value.setA(data.start);
+			this.goal.setA(data.goal);
+			this.velocity.setA(data.velocity);
+			this.stiffness = data.stiffness;
+			this.damping = data.damping;
+		};
+		Kayac.SpringDamper2.prototype.update = function(dt){
+			var dx = this.goal.x - this.value.x;
+			var dy = this.goal.y - this.value.y;
+			var ax = (dx * this.stiffness) - (this.velocity.x * this.damping);
+			var ay = (dy * this.stiffness) - (this.velocity.y * this.damping);
+			this.velocity.x += ax * dt;
+			this.velocity.y += ay * dt;
+			this.value.x += this.velocity.x * dt;
+			this.value.y += this.velocity.y * dt;
+		};
+		Kayac.SpringDamper2.prototype.converge = function(){
+			this.velocity.setxy(0, 0);
+			this.value.setV(this.goal);
+		};
+
+		// SpriteAnimator
+		Kayac.SpriteAnimator = function(){
+			this.position = null;
+			this.rotation = null;
+			this.scale = null;
+			this.opacity = null;
+		};
+		Kayac.SpriteAnimator.prototype.setAnimation = function(animation){
+			var data = animation.position;
+			if (data){
+				this.position = new Kayac.SpringDamper2();
+				this.position.setData(data);
+			}
+			data = animation.scale;
+			if (data){
+				this.scale = new Kayac.SpringDamper2();
+				this.scale.setData(data);
+			}
+			data = animation.opacity;
+			if (data){
+				this.opacity = new Kayac.SpringDamper();
+				this.opacity.setData(data);
+			}
+		};
+		Kayac.SpriteAnimator.prototype.update = function(deltaTime){
+			if (this.position !== null){
+				this.position.update(deltaTime);
+			}
+			if (this.scale !== null){
+				this.scale.update(deltaTime);
+			}
+			if (this.opacity !== null){
+				this.opacity.update(deltaTime);
+			}
+		};
+		Kayac.SpriteAnimator.prototype.apply = function(transform){
+			if (this.position !== null){
+				transform.position[0] = this.position.value.x;
+				transform.position[1] = this.position.value.y;
+			}
+			if (this.scale !== null){
+				transform.scale[0] = this.scale.value.x;
+				transform.scale[1] = this.scale.value.y;
+			}
+			if (this.opacity !== null){
+				transform.opacity = this.opacity.value;
+			}
+		};
+		Kayac.SpriteAnimator.prototype.converge = function(){
+			if (this.position !== null){
+				this.position.converge();
+			}
+			if (this.scale !== null){
+				this.scale.converge();
+			}
+			if (this.opacity !== null){
+				this.opacity.converge();
+			}
+		};
+
 		// SpriteInstance
 		Kayac.SpriteInstance = function () {
 			this.sprite = null;
 			this.transform = null;
+			this.originalTransform = null;
+			this.animator = null;
+		};
+		Kayac.SpriteInstance.prototype.setAnimation = function(animation){
+			if (this.animator === null){
+				this.animator = new Kayac.SpriteAnimator();
+				this.originalTransform = new Kayac.SpriteTransform();
+				this.originalTransform.set(this.transform);
+			}
+			this.animator.setAnimation(animation);
+		};
+		Kayac.SpriteInstance.prototype.resetAnimation = function(){
+			if (this.animator !== null){
+				this.transform.set(this.oirignalTransform);
+			}
+		};
+		Kayac.SpriteInstance.prototype.updateAnimation = function(deltaTime){
+			if (this.animator !== null){
+				this.animator.update(deltaTime);
+				this.animator.apply(this.transform);
+			}
 		};
 		// SpriteRenderer
 		Kayac.SpriteRenderer = function (
@@ -2750,6 +2894,11 @@ void main(){
 			console.assert(spriteInstance);
 			this.mInstances.push(spriteInstance);
 		};
+		Kayac.SpriteRenderer.prototype.updateAnimation = function (deltaTime) {
+			for (var i = 0; i < this.mInstances.length; ++i){
+				this.mInstances[i].updateAnimation(deltaTime);
+			}
+		};
 		Kayac.SpriteRenderer.prototype.draw = function (gpu, cameraMatrix) {
 			// 全頂点バッファを生成
 			var floatStride = this.mVertexFormat.stride / 4;
@@ -2778,13 +2927,23 @@ void main(){
 			var floatStride = this.mVertexFormat.stride / 4;
 			var sprite = instance.sprite;
 			var transform = instance.transform;
+
+			// 色まとめてセット TODO: そのうちRGBも入れるか?
+			var alpha = transform.opacity;
+			for (var i = 0; i < 4; i++){
+				buffer[offset + (i * floatStride) + 4] = 1;
+				buffer[offset + (i * floatStride) + 5] = 1;
+				buffer[offset + (i * floatStride) + 6] = 1;
+				buffer[offset + (i * floatStride) + 7] = alpha;
+			}
+
 			console.assert(sprite && transform);
 			this.getOrigin(tmpOrigin, sprite, transform);
 			var u = sprite.texcoordOffset[0] + transform.texcoordOffset[0];
 			var v = sprite.texcoordOffset[1] + transform.texcoordOffset[1];
 			// 左下
 			buffer[offset + 0] = tmpOrigin.x;
-			buffer[offset + 1] = tmpOrigin.y + sprite.size[1];
+			buffer[offset + 1] = tmpOrigin.y + sprite.size[1] * transform.scale[0];
 			buffer[offset + 2] = u;
 			buffer[offset + 3] = v + sprite.texcoordSize[1];
 			offset += floatStride;
@@ -2797,15 +2956,15 @@ void main(){
 			offset += floatStride;
 
 			// 右上
-			buffer[offset + 0] = tmpOrigin.x + sprite.size[0];
+			buffer[offset + 0] = tmpOrigin.x + sprite.size[0] * transform.scale[0];
 			buffer[offset + 1] = tmpOrigin.y;
 			buffer[offset + 2] = u + sprite.texcoordSize[0];
 			buffer[offset + 3] = v;
 			offset += floatStride;
 
 			// 右下
-			buffer[offset + 0] = tmpOrigin.x + sprite.size[0];
-			buffer[offset + 1] = tmpOrigin.y + sprite.size[1];
+			buffer[offset + 0] = tmpOrigin.x + sprite.size[0] * transform.scale[0];
+			buffer[offset + 1] = tmpOrigin.y + sprite.size[1] * transform.scale[0];
 			buffer[offset + 2] = u + sprite.texcoordSize[0];
 			buffer[offset + 3] = v + sprite.texcoordSize[1];
 			offset += floatStride;
@@ -2817,8 +2976,8 @@ void main(){
 			originOut.x = this.parentWidth * transform.anchor[0];
 			originOut.y = this.parentHeight * transform.anchor[1];
 			// 自分のピボットを見てズラす
-			originOut.x -= sprite.size[0] * transform.pivot[0];
-			originOut.y -= sprite.size[1] * transform.pivot[1];
+			originOut.x -= sprite.size[0] * transform.pivot[0] * transform.scale[0];
+			originOut.y -= sprite.size[1] * transform.pivot[1] * transform.scale[0];
 			// 位置を加算
 			originOut.x += transform.position[0];
 			originOut.y += transform.position[1];
@@ -2841,14 +3000,29 @@ void main(){
 			return ret;
 		};
 
-		// 2DのTransform
-		Kayac.Transform2d = function () {
-			this.name = 'unnamed transform2d';
+		// SpriteTransform
+		Kayac.SpriteTransform = function () {
+			this.name = 'unnamed SpriteTransform';
 			this.pivot = [0.5, 0.5];
 			this.anchor = [0.5, 0.5];
 			this.scale = [1, 1];
 			this.position = [0, 0];
 			this.texcoordOffset = [0, 0];
+			this.opacity = 1;
+		};
+		Kayac.SpriteTransform.prototype.set = function(a){
+			this.name = a.name;
+			this.pivot[0] = a.pivot[0];
+			this.pivot[1] = a.pivot[1];
+			this.anchor[0] = a.anchor[0];
+			this.anchor[1] = a.anchor[1];
+			this.scale[0] = a.scale[0];
+			this.scale[1] = a.scale[1];
+			this.position[0] = a.position[0];
+			this.position[1] = a.position[1];
+			this.texcoordOffset[0] = a.texcoordOffset[0];
+			this.texcoordOffset[1] = a.texcoordOffset[1];
+			this.opacity = a.opacity;
 		};
 
 		// MatrixStack
@@ -3064,6 +3238,26 @@ void main(){
 			"width": 1024,
 			"height": 4096
 		};
+		// アニメデータ
+		UnkoNenga.uiAnimations = [
+			{
+				"name": "button_loop",
+				"scale": {
+					start: [1, 1],
+					goal: [1, 1],
+					velocity: [0.5, 0.5],
+					stiffness: 10,
+					damping: 0
+				},
+				"opacity": {
+					start: 0.8,
+					goal: 0.8,
+					velocity: -0.2,
+					stiffness: 10,
+					damping: 0
+				}
+			}
+		]
 		// 配置データ
 		UnkoNenga.uiTransforms = [
 			{
@@ -3073,6 +3267,7 @@ void main(){
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
+				"opacity": 1
 			},
 			{
 				"name": "result_text_cyoubiun",
@@ -3081,6 +3276,7 @@ void main(){
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
+				"opacity": 1
 			},
 			{
 				"name": "result_text_cyubiun",
@@ -3089,6 +3285,7 @@ void main(){
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
+				"opacity": 1
 			},
 			{
 				"name": "result_text_cyubsyuuun",
@@ -3097,6 +3294,7 @@ void main(){
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
+				"opacity": 1
 			},
 			{
 				"name": "result_text_daibiun",
@@ -3105,6 +3303,7 @@ void main(){
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
+				"opacity": 1
 			},
 			{
 				"name": "result_text_daibsyuuun",
@@ -3113,6 +3312,7 @@ void main(){
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
+				"opacity": 1
 			},
 			{
 				"name": "result_text_keisoku",
@@ -3121,6 +3321,7 @@ void main(){
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
+				"opacity": 1
 			},
 			{
 				"name": "result_text_syobiun",
@@ -3129,6 +3330,7 @@ void main(){
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
+				"opacity": 1
 			},
 			{
 				"name": "result_text_syobsyuuun",
@@ -3137,6 +3339,7 @@ void main(){
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
+				"opacity": 1
 			},
 			{
 				"name": "title",
@@ -3145,6 +3348,7 @@ void main(){
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
+				"opacity": 1
 			},
 			{
 				"name": "text_setsumei",
@@ -3153,6 +3357,7 @@ void main(){
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
+				"opacity": 1
 			},
 			{
 				"name": "result_text01",
@@ -3161,6 +3366,7 @@ void main(){
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
+				"opacity": 1
 			},
 			{
 				"name": "result_text03",
@@ -3169,6 +3375,7 @@ void main(){
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
+				"opacity": 1
 			},
 			{
 				"name": "text_bottom",
@@ -3177,6 +3384,7 @@ void main(){
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
+				"opacity": 1
 			},
 			{
 				"name": "text_middle",
@@ -3185,6 +3393,7 @@ void main(){
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
+				"opacity": 1
 			},
 			{
 				"name": "btm_start",
@@ -3193,6 +3402,7 @@ void main(){
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
+				"opacity": 1
 			},
 			{
 				"name": "result_text02",
@@ -3201,6 +3411,7 @@ void main(){
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
+				"opacity": 1
 			},
 			{
 				"name": "btm_tap",
@@ -3209,6 +3420,7 @@ void main(){
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
+				"opacity": 1
 			},
 			{
 				"name": "text_top",
@@ -3217,6 +3429,7 @@ void main(){
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
+				"opacity": 1
 			},
 			{
 				"name": "btm_retry",
@@ -3225,6 +3438,7 @@ void main(){
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
+				"opacity": 1
 			},
 			{
 				"name": "result",
@@ -3233,6 +3447,7 @@ void main(){
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
+				"opacity": 1
 			},
 			{
 				"name": "result_balance_beautiful",
@@ -3241,6 +3456,7 @@ void main(){
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
+				"opacity": 1
 			},
 			{
 				"name": "result_balance",
@@ -3249,6 +3465,7 @@ void main(){
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
+				"opacity": 1
 			},
 			{
 				"name": "result_size_medium",
@@ -3257,6 +3474,7 @@ void main(){
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
+				"opacity": 1
 			},
 			{
 				"name": "result_size_small",
@@ -3265,6 +3483,7 @@ void main(){
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
+				"opacity": 1
 			},
 			{
 				"name": "result_size_large",
@@ -3273,6 +3492,7 @@ void main(){
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
+				"opacity": 1
 			},
 			{
 				"name": "result_balance_ugly",
@@ -3281,6 +3501,7 @@ void main(){
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
+				"opacity": 1
 			},
 			{
 				"name": "result_size",
@@ -3289,6 +3510,7 @@ void main(){
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
+				"opacity": 1
 			},
 		];
 
@@ -3298,9 +3520,14 @@ void main(){
 		"use strict";
 		(function () {
 			var uiAtlas = UnkoNenga.uiAtlas;
+			// データ検索テーブル生成
 			var uiTransforms = {};
 			for (var i = 0; i < UnkoNenga.uiTransforms.length; i++) {
 				uiTransforms[UnkoNenga.uiTransforms[i].name] = UnkoNenga.uiTransforms[i];
+			}
+			var uiAnimations = {};
+			for (var i = 0; i < UnkoNenga.uiAnimations.length; i++) {
+				uiAnimations[UnkoNenga.uiAnimations[i].name] = UnkoNenga.uiAnimations[i];
 			}
 			var requestAspect = 9 / 16;
 			var logicalWidth = 720;
@@ -3309,9 +3536,10 @@ void main(){
 			var plateInterval = 0.6;
 			var scaleMin = 0.1;
 			var scaleMax = 3;
-			var bottomScaleSpeed = 1;
-			var middleScaleSpeed = 2;
-			var topScaleSpeed = 3;
+			var bottomScaleSpeed = 2;
+			var middleScaleSpeed = 4;
+			var topScaleSpeed = 6;
+			var maxDeltaTime = 0.1;
 
 			//フレームをまたいで保持するデータ
 			var state = {
@@ -3326,7 +3554,7 @@ void main(){
 				spriteRenderer: null,
 				spriteInstances: {},
 				down: false,
-				clicked: false,
+				justDown: false,
 				cursorPos: { x: 0, y: 0 },
 				textures: {},
 				loadingTextureCount: -1,
@@ -3377,9 +3605,11 @@ void main(){
 				name: 'title',
 				initialize: function () {
 					resetUnkoScale();
+					var button = state.spriteInstances['btm_start'];
+					button.setAnimation(uiAnimations['button_loop']);
 				},
 				update: function () {
-					if (state.clicked === true) {
+					if (state.justDown === true) {
 						changeScene(gameScene);
 					}
 					// 雑
@@ -3402,6 +3632,7 @@ void main(){
 					addSprite('btm_start');
 					addSprite('title');
 					addSprite('text_setsumei');
+					state.spriteRenderer.updateAnimation(state.deltaTime);
 					state.spriteRenderer.draw(state.gpu, camera2dMatrix)
 				}
 			};
@@ -3418,11 +3649,13 @@ void main(){
 				initialize: function () {
 					this.progress = 0;
 					this.scaleSpeed = bottomScaleSpeed;
+					var button = state.spriteInstances['btm_tap'];
+					button.setAnimation(uiAnimations['button_loop']);
 				},
 				update: function () {
 					console.log(this.progress);
 					if (this.progress === 0) {
-						if (state.clicked === true) {
+						if (state.justDown === true) {
 							this.progress += 1;
 							this.scaleSpeed = middleScaleSpeed;
 						}
@@ -3435,7 +3668,7 @@ void main(){
 						}
 						state.bottomTransform.scale = Kayac.V3.createXyz(s, plateThickness, s);
 					} else if (this.progress === 1) {
-						if (state.clicked === true) {
+						if (state.justDown === true) {
 							this.progress += 1;
 							this.scaleSpeed = topScaleSpeed;
 						}
@@ -3448,7 +3681,7 @@ void main(){
 						}
 						state.middleTransform.scale = Kayac.V3.createXyz(s, plateThickness, s);
 					} else if (this.progress === 2) {
-						if (state.clicked === true) {
+						if (state.justDown=== true) {
 							changeScene(resultScene);
 						}
 						var s = state.topTransform.scale.x;
@@ -3489,6 +3722,7 @@ void main(){
 					} else if (this.progress === 2) {
 						addSprite('text_top');
 					}
+					state.spriteRenderer.updateAnimation(state.deltaTime);
 					state.spriteRenderer.draw(state.gpu, camera2dMatrix)
 				}
 			};
@@ -3516,7 +3750,7 @@ void main(){
 					}
 				},
 				update: function () {
-					if (state.clicked === true) {
+					if (state.justDown === true) {
 						changeScene(titleScene);
 					}
 					// 雑
@@ -3599,10 +3833,11 @@ void main(){
 					fragmentShaderId: '2dfs'
 				});
 				state.vertexFormat2d = {
-					stride: 16,
+					stride: 32,
 					elements: [
 						{ offset: 0, vectorDimension: 2, name: 'aPosition' },
-						{ offset: 8, vectorDimension: 2, name: 'aTexCoord' }
+						{ offset: 8, vectorDimension: 2, name: 'aTexCoord' },
+						{ offset: 16, vectorDimension: 4, name: 'aColor' } // TODO: バイトに落としたい
 					]
 				};
 				state.spriteRenderer = new Kayac.SpriteRenderer(state.gpu, 32, state.vertexFormat2d, state.shader2d);
@@ -3619,7 +3854,7 @@ void main(){
 			};
 			var mainLoop = function () {
 				var now = Date.now();
-				state.deltaTime = (now - state.time) * 0.001;
+				state.deltaTime = Math.min(maxDeltaTime, (now - state.time) * 0.001);
 				state.time = now;
 				// Update
 				if (state.scene !== null) {
@@ -3634,7 +3869,7 @@ void main(){
 					}
 				}
 				window.requestAnimationFrame(mainLoop);
-				state.clicked = false;
+				state.justDown = false;
 			};
 			var startBeforeLoad = function () {
 				state.scene = loadingScene;
@@ -3681,10 +3916,9 @@ void main(){
 				sprite.texcoordSize = [backgroundTiling, 2 * backgroundTiling * logicalHeight / logicalWidth];
 				var backInstance = new Kayac.SpriteInstance();
 				backInstance.sprite = sprite;
-				backInstance.transform = new Kayac.Transform2d();
+				backInstance.transform = new Kayac.SpriteTransform();
 				state.backgroundSpriteInstance = backInstance;
 
-				state.scene = titleScene;
 				// ウンコ初期化
 				state.matrixStack = new Kayac.MatrixStack();
 				state.unkoTransform = new Kayac.Transform();
@@ -3695,8 +3929,6 @@ void main(){
 
 				state.bottomTransform.position = Kayac.V3.createXyz(0, -plateInterval * 2, 0);
 				state.topTransform.position = Kayac.V3.createXyz(0, plateInterval * 2, 0);
-
-				resetUnkoScale();
 
 				// UI系初期化
 				// Transformをまず辞書化
@@ -3717,10 +3949,12 @@ void main(){
 					sprite.texcoordOffset = [item.x / uiAtlas.width, item.y / uiAtlas.height];
 
 					var transform = uiTransforms[item.name];
-					var instance = { sprite: sprite, transform: transform };
-
+					var instance = new Kayac.SpriteInstance();
+					instance.sprite = sprite;
+					instance.transform = transform;
 					state.spriteInstances[item.name] = instance;
 				}
+				changeScene(titleScene);
 			};
 			var loadAudio = function (name) {
 				var ret = null;
@@ -3803,10 +4037,11 @@ void main(){
 			};
 			var onMouseDown = function (e) {
 				e = e || window.event;
-				state.down = true;
+				state.down = state.justDown = true;
 				state.cursorPos = { x: e.clientX, y: e.clientY };
 				e.preventDefault();
 				e.stopPropagation;
+				onPointerDown();
 			};
 			var onMouseMove = function (e) {
 				e = e || window.event;
@@ -3831,12 +4066,13 @@ void main(){
 			var onTouchStart = function (e) {
 				e = e || window.event;
 				if (e.changedTouches.length > 0) {
-					state.down = true;
+					state.down = state.justDown = true;
 					var touch = e.changedTouches[0];
 					state.cursorPos = { x: touch.clientX, y: touch.clientY };
 				}
 				e.preventDefault();
 				e.stopPropagation;
+				onPointerDown();
 			};
 			var onTouchMove = function (e) {
 				e = e || window.event;
@@ -3853,9 +4089,7 @@ void main(){
 				e.preventDefault();
 				e.stopPropagation;
 			};
-			var onClickCanvas = function (e) {
-				state.clicked = true;
-				state.cursorPos = { x: e.clientX, y: e.clientY };
+			var onPointerDown = function(){
 				// クリックタイミングでbgm鳴ってなければ鳴らす
 				if (state.bgm === null) {
 					state.bgm = loadAudio('bgm');
@@ -3864,8 +4098,6 @@ void main(){
 						state.bgm.play();
 					}
 				}
-				e.preventDefault();
-				e.stopPropagation;
 			};
 			var onCanPlayThrough = function (e) {
 				state.bgm.play();
@@ -3881,7 +4113,6 @@ void main(){
 			canvas.addEventListener('touchstart', onTouchStart, false);
 			canvas.addEventListener('touchmove', onTouchMove, false);
 			canvas.addEventListener('touchend', onTouchEnd, false);
-			canvas.addEventListener('click', onClickCanvas, false);
 
 			var testAudio = new Audio();
 			if (testAudio.canPlayType('audio/ogg')) {
