@@ -3045,136 +3045,143 @@ void main(){
 					"y": 2682
 				},
 				{
+					"name": "result",
+					"width": 250,
+					"height": 58,
+					"x": 524,
+					"y": 2682
+				},
+				{
 					"name": "btm_retry",
 					"width": 244,
 					"height": 54,
-					"x": 524,
+					"x": 778,
 					"y": 2682
 				},
 				{
 					"name": "result_balance_beautiful",
 					"width": 218,
 					"height": 42,
-					"x": 772,
-					"y": 2682
+					"x": 4,
+					"y": 2942
 				},
 				{
 					"name": "result_balance",
 					"width": 180,
 					"height": 42,
-					"x": 4,
+					"x": 226,
 					"y": 2942
 				},
 				{
 					"name": "result_size_medium",
 					"width": 160,
 					"height": 42,
-					"x": 188,
+					"x": 410,
 					"y": 2942
 				},
 				{
 					"name": "btm_twitter",
 					"width": 150,
 					"height": 46,
-					"x": 352,
+					"x": 574,
 					"y": 2942
 				},
 				{
 					"name": "result_size_small",
 					"width": 148,
 					"height": 42,
-					"x": 506,
+					"x": 728,
 					"y": 2942
 				},
 				{
 					"name": "result_size_large",
 					"width": 138,
 					"height": 42,
-					"x": 658,
+					"x": 880,
 					"y": 2942
 				},
 				{
 					"name": "result_balance_ugly",
 					"width": 126,
 					"height": 42,
-					"x": 800,
-					"y": 2942
+					"x": 4,
+					"y": 2992
 				},
 				{
 					"name": "result_size",
 					"width": 100,
 					"height": 42,
-					"x": 4,
+					"x": 134,
 					"y": 2992
 				},
 				{
 					"name": "num_0",
 					"width": 48,
 					"height": 48,
-					"x": 108,
+					"x": 238,
 					"y": 2992
 				},
 				{
 					"name": "num_1",
 					"width": 48,
 					"height": 48,
-					"x": 160,
+					"x": 290,
 					"y": 2992
 				},
 				{
 					"name": "num_2",
 					"width": 48,
 					"height": 48,
-					"x": 212,
+					"x": 342,
 					"y": 2992
 				},
 				{
 					"name": "num_3",
 					"width": 48,
 					"height": 48,
-					"x": 264,
+					"x": 394,
 					"y": 2992
 				},
 				{
 					"name": "num_4",
 					"width": 48,
 					"height": 48,
-					"x": 316,
+					"x": 446,
 					"y": 2992
 				},
 				{
 					"name": "num_5",
 					"width": 48,
 					"height": 48,
-					"x": 368,
+					"x": 498,
 					"y": 2992
 				},
 				{
 					"name": "num_6",
 					"width": 48,
 					"height": 48,
-					"x": 420,
+					"x": 550,
 					"y": 2992
 				},
 				{
 					"name": "num_7",
 					"width": 48,
 					"height": 48,
-					"x": 472,
+					"x": 602,
 					"y": 2992
 				},
 				{
 					"name": "num_8",
 					"width": 48,
 					"height": 48,
-					"x": 524,
+					"x": 654,
 					"y": 2992
 				},
 				{
 					"name": "num_9",
 					"width": 48,
 					"height": 48,
-					"x": 576,
+					"x": 706,
 					"y": 2992
 				}
 			],
@@ -3317,7 +3324,7 @@ void main(){
 			{
 				"name": "title",
 				"pivot": [0.5, 0.5],
-				"anchor": [0.5, 0.1],
+				"anchor": [0.5, 0.07],
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
@@ -3425,7 +3432,7 @@ void main(){
 			{
 				"name": "result",
 				"pivot": [0.5, 0.5],
-				"anchor": [0.7, 0.5],
+				"anchor": [0.5, 0.15],
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
@@ -3574,7 +3581,7 @@ void main(){
 				this.scales[this.scaleIndex] = s;
 			}
 
-			for (var i = 0; i < this.fixFlashes.length; ++i){
+			for (var i = 0; i < this.fixFlashes.length; ++i) {
 				this.fixFlashes[i].update(deltaTime);
 			}
 		};
@@ -3665,13 +3672,13 @@ void main(){
 			}
 			matrixStack.pop();
 		};
-		UnkoNenga.Unko.prototype.flash = function(index){
+		UnkoNenga.Unko.prototype.flash = function (index) {
 			var data = UnkoNenga.unkoScaleFixAnimation.emission;
 			this.fixFlashes[index].setData(data);
 		};
-		UnkoNenga.Unko.prototype.flashFinal = function(){
+		UnkoNenga.Unko.prototype.flashFinal = function () {
 			var data = UnkoNenga.unkoScaleFixAnimation.emissionFinal;
-			for (var i = 0; i < this.fixFlashes.length; ++i){
+			for (var i = 0; i < this.fixFlashes.length; ++i) {
 				this.fixFlashes[i].setData(data);
 			}
 		};
@@ -3943,9 +3950,9 @@ void main(){
 				},
 				update: function () {
 					if (state.justDown === true) {
-						if (isHitUi('btm_retry')){
+						if (isHitUi('btm_retry')) {
 							changeScene(titleScene);
-						}else if (isHitUi('btm_twitter')){
+						} else if (isHitUi('btm_twitter')) {
 							showTweetWindow();
 						}
 					}
@@ -3972,6 +3979,7 @@ void main(){
 					addSprite('result_balance');
 					addSprite('btm_retry');
 					addSprite('btm_twitter');
+					addSprite('result');
 					var size = this.sizeScore;
 					var balance = this.balanceScore;
 					if (size === 0) {
@@ -4008,23 +4016,23 @@ void main(){
 					state.spriteRenderer.draw(state.gpu, camera2dMatrix);
 				}
 			};
-			var isHitUi = function(name){
+			var isHitUi = function (name) {
 				var transform = uiTransforms[name];
-				if (!transform){
+				if (!transform) {
 					return false;
 				}
 				var p = toLogicalScreenPosition(state.cursorPos);
 				var min = new Kayac.V2.createXy(-10000, -10000);
 				var max = new Kayac.V2.createXy(10000, 10000);
 				// TODO: min,maxにUI範囲を入れる
-				if ((min.x <= p.x) && (p.x <= max.x) && (min.y <= p.y) && (p.y <= max.y)){
+				if ((min.x <= p.x) && (p.x <= max.x) && (min.y <= p.y) && (p.y <= max.y)) {
 					return true;
-				}else {
+				} else {
 					return false;
 				}
 			}
 
-			var toLogicalScreenPosition = function(physicalScreenPosition){
+			var toLogicalScreenPosition = function (physicalScreenPosition) {
 				// TODO:
 				return Kayac.V2.createXy(0, 0);
 			};
