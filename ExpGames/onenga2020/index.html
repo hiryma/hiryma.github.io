@@ -33,13 +33,10 @@
 	<script id="3dvs" type="x-shader/x-vertex">
 precision mediump float;
 
-attribute vec3 aPosition;
-attribute vec3 aNormal;
-attribute vec2 aTexCoord;
+attribute vec2 aCoord; // theta, y
 
 varying vec3 vNormal;
 varying vec3 vPosition;
-varying vec2 vTexCoord;
 
 uniform vec4 uTransform0;
 uniform vec4 uTransform1;
@@ -51,20 +48,43 @@ uniform vec4 uToWorld2;
 uniform vec3 uToWorldNormal0;
 uniform vec3 uToWorldNormal1;
 uniform vec3 uToWorldNormal2;
+uniform vec4 uPolynominal; //0,1,2,3次の順
 
 void main(){
-	vec4 p = vec4(aPosition.xyz, 1.0);
+	float dirX = cos(aCoord.x);
+	float dirZ = sin(aCoord.x);
+	float y = aCoord.y;
+	float l = uPolynominal.w;
+	l *= y;
+	l += uPolynominal.z;
+	l *= y;
+	l += uPolynominal.y;
+	l *= y;
+	l += uPolynominal.x;
+
+	vec4 p = vec4(dirX * l, y, dirZ * l, 1.0);
 
 	gl_Position.x = dot(uTransform0, p);
 	gl_Position.y = dot(uTransform1, p);
 	gl_Position.z = dot(uTransform2, p);
 	gl_Position.w = dot(uTransform3, p);
 
-	vTexCoord = aTexCoord;
+	// 法線生成
+	float dl = 3.0 * uPolynominal.w;
+	dl *= y;
+	dl += 2.0 * uPolynominal.z;
+	dl *= y;
+	dl += uPolynominal.y;
+	// タンジェントは2次元座標で(1,dl)なので、これを3次元に移す
+	vec3 n;
+	n.x = dirX;
+	n.z = dirZ;
+	n.y = -dl;
+	n = normalize(n);
 
-	vNormal.x = dot(uToWorldNormal0, aNormal);
-	vNormal.y = dot(uToWorldNormal1, aNormal);
-	vNormal.z = dot(uToWorldNormal2, aNormal);
+	vNormal.x = dot(uToWorldNormal0, n);
+	vNormal.y = dot(uToWorldNormal1, n);
+	vNormal.z = dot(uToWorldNormal2, n);
 
 	vPosition.x = dot(uToWorld0, p);
 	vPosition.y = dot(uToWorld1, p);
@@ -76,9 +96,9 @@ void main(){
 precision mediump float;
 uniform sampler2D uSampler;
 uniform vec4 uAlbedo;
+
 varying vec3 vNormal; // world
 varying vec3 vPosition; // world
-varying vec2 vTexCoord;
 
 vec2 fresnel2(float f0, vec2 eh_en){
 	vec2 t = vec2(1.0, 1.0) - eh_en;
@@ -87,6 +107,7 @@ vec2 fresnel2(float f0, vec2 eh_en){
 }
 
 void main(){
+//gl_FragColor = vec4(vNormal * 0.5 + 0.5, 1); return;
 	float pi = 3.14159;
 	vec3 l = vec3(0.5773, 0.5773, -0.5773);
 	vec3 lightColor = vec3(0.5, 0.5, 0.5);
@@ -106,18 +127,15 @@ void main(){
 	vec2 fresnels = fresnel2(f0, vec2(eh, en));
 	float ry = -e.y + (n.y * (2.0 * en));
 
-	vec4 albedo = texture2D(uSampler, vTexCoord) * uAlbedo;
+	vec4 albedo = uAlbedo; // * texture2D(uSampler, vTexCoord); // テクスチャ貼るようになったら
 	vec3 directDiffuse = lightColor * nl;
 	vec3 indirectDiffuse = mix(ambientDown, ambientUp, (n.y * 0.5) + 0.5);
 	vec3 diffuse = (directDiffuse + indirectDiffuse) * albedo.xyz;
 
-	vec3 directSpecular = lightColor * (fresnels.x * pow(clamp(nh, 0.0, 1.0), shininess) * (shininess + 2.0) / (2.0 * pi));
+	vec3 directSpecular = lightColor * (fresnels.x * pow(nh, shininess) * (shininess + 2.0) / (2.0 * pi));
 	vec3 indirectSpecular = mix(ambientDown, ambientUp, (ry * 0.5) + 0.5) * fresnels.y;
 	vec3 specular = directSpecular + indirectSpecular;
 	specular /= (albedo.w == 0.0) ? 1.0 : albedo.w;
-//	gl_FragColor.xyz = e * 0.5 + 0.5;//vec3(eh, eh, eh);
-//	gl_FragColor.w = 1.0;
-//	return;
 
 	gl_FragColor.xyz = diffuse + specular;
 	gl_FragColor.w = albedo.w;
@@ -160,52 +178,8 @@ void main(){
 		"use strict";
 		var Kayac = Kayac || {}; //名前空間オブジェクト
 
-		Kayac.msbIndex = function (x) {
-			var r = 0;
-			if (x & 0xffff0000) {
-				r += 16;
-				x >>>= 16;
-			}
-			if (x & 0xff00) {
-				r += 8;
-				x >>>= 8;
-			}
-			if (x & 0xf0) {
-				r += 4;
-				x >>>= 4;
-			}
-			if (x & 0xc) {
-				r += 2;
-				x >>>= 2;
-			}
-			if (x & 0x2) {
-				r += 1;
-				x >>>= 1;
-			}
-			return (x === 1) ? r : -1;
-		};
-
-		Kayac.clamp = function (x, min, max) {
-			x = (x < min) ? min : x;
-			x = (x > max) ? max : x;
-			return x;
-		};
-
 		Kayac.isPowerOf2 = function (x) {
 			return (x & (x - 1)) === 0;
-		};
-
-		//角度→ラジアン
-		Kayac.toRadian = function (x) {
-			return x * (Math.PI / 180);
-		};
-
-		//整数乱数。最小値と種類数。6面サイコロなら1,6
-		Kayac.randomInt = function (min, count) {
-			var t = Math.random() * count; //[0, count)
-			t = Math.floor(t); //[0, count-1]
-			t += min; //[min, min+count-1]
-			return t;
 		};
 
 		//配列オフセットつきコピー
@@ -214,71 +188,6 @@ void main(){
 				dst[dstOffset + i] = src[srcOffset + i];
 			}
 		};
-
-		//配列埋め
-		Kayac.fillArray = function (dst, dstOffset, value, count) {
-			for (var i = 0; i < count; i += 1) {
-				dst[dstOffset + i] = value;
-			}
-		};
-
-		//ビット反転
-		Kayac.reverseBit = function (x) {
-			var a = x & 0xffff0000;
-			var b = x & 0x0000ffff;
-			x = (a >>> 16) | (b << 16); //右シフトは論理シフトね。
-			a = x & 0xff00ff00;
-			b = x & 0x00ff00ff;
-			x = (a >>> 8) | (b << 8);
-			a = x & 0xf0f0f0f0;
-			b = x & 0x0f0f0f0f;
-			x = (a >>> 4) | (b << 4);
-			a = x & 0xcccccccc;
-			b = x & 0x33333333;
-			x = (a >>> 2) | (b << 2);
-			a = x & 0xaaaaaaaa;
-			b = x & 0x55555555;
-			x = (a >>> 1) | (b << 1);
-			return x;
-		};
-
-		//3要素の最小値を番号で返す(0,1,2)
-		Kayac.min3Index = function (a, b, c) {
-			var r;
-			if (a < b) {
-				if (a < c) {
-					r = 0;
-				} else {
-					r = 2;
-				}
-			} else {
-				if (b < c) {
-					r = 1;
-				} else {
-					r = 2;
-				}
-			}
-			return r;
-		};
-
-		Kayac.max3Index = function (a, b, c) {
-			var r;
-			if (a > b) {
-				if (a > c) {
-					r = 0;
-				} else {
-					r = 2;
-				}
-			} else {
-				if (b > c) {
-					r = 1;
-				} else {
-					r = 2;
-				}
-			}
-			return r;
-		};
-
 
 		//画像ロード
 		//srcはHTMLImageElement, Blob, urlが入ったstringのいずれか
@@ -2452,133 +2361,64 @@ void main(){
 			this.mVertexFormat = vertexFormat;
 			this.mVertexCount = 0;
 		};
-		Kayac.Mesh.prototype.setCube = function (gpu) {
-			var floatStride = this.mVertexFormat.stride / 4;
-			var data = new Float32Array(24 * floatStride); //24頂点
-			var uv = [0, 0];
-			var normal = [-1, 0, 0];
-
-			this.setVertex(data, 0, [-1, -1, -1], normal, uv);
-			this.setVertex(data, 1, [-1, -1, 1], normal, uv);
-			this.setVertex(data, 2, [-1, 1, 1], normal, uv);
-			this.setVertex(data, 3, [-1, 1, -1], normal, uv);
-
-			normal = [1, 0, 0];
-			this.setVertex(data, 4, [1, -1, -1], normal, uv);
-			this.setVertex(data, 5, [1, -1, 1], normal, uv);
-			this.setVertex(data, 6, [1, 1, 1], normal, uv);
-			this.setVertex(data, 7, [1, 1, -1], normal, uv);
-
-			normal = [0, -1, 0];
-			this.setVertex(data, 8, [-1, -1, -1], normal, uv);
-			this.setVertex(data, 9, [-1, -1, 1], normal, uv);
-			this.setVertex(data, 10, [1, -1, 1], normal, uv);
-			this.setVertex(data, 11, [1, -1, -1], normal, uv);
-
-			normal = [0, 1, 0];
-			this.setVertex(data, 12, [-1, 1, -1], normal, uv);
-			this.setVertex(data, 13, [-1, 1, 1], normal, uv);
-			this.setVertex(data, 14, [1, 1, 1], normal, uv);
-			this.setVertex(data, 15, [1, 1, -1], normal, uv);
-
-			normal = [0, 0, -1];
-			this.setVertex(data, 16, [-1, -1, -1], normal, uv);
-			this.setVertex(data, 17, [1, -1, -1], normal, uv);
-			this.setVertex(data, 18, [1, 1, -1], normal, uv);
-			this.setVertex(data, 19, [-1, 1, -1], normal, uv);
-
-			normal = [0, 0, 1];
-			this.setVertex(data, 20, [-1, -1, 1], normal, uv);
-			this.setVertex(data, 21, [1, -1, 1], normal, uv);
-			this.setVertex(data, 22, [1, 1, 1], normal, uv);
-			this.setVertex(data, 23, [-1, 1, 1], normal, uv);
-
-			this.mVertexBuffer = new Kayac.VertexBuffer({
-				gpu: gpu,
-				name: this.name + '_vb',
-				data: data
-			});
-			var indices = new Uint16Array(36);
-			for (var i = 0; i < 6; ++i) {
-				indices[(i * 6) + 0] = (i * 4) + 0;
-				indices[(i * 6) + 1] = (i * 4) + 1;
-				indices[(i * 6) + 2] = (i * 4) + 2;
-				indices[(i * 6) + 3] = (i * 4) + 3;
-				indices[(i * 6) + 4] = (i * 4) + 0;
-				indices[(i * 6) + 5] = (i * 4) + 2;
-			}
-			this.mIndexBuffer = new Kayac.IndexBuffer({
-				gpu: gpu,
-				name: this.name + '_ib',
-				data: new Uint16Array(indices)
-			});
-			this.mVertexCount = 36;
-		};
-		Kayac.Mesh.prototype.setSphere = function (gpu, hDiv, vDiv) {
+		Kayac.Mesh.prototype.setCylinder = function (gpu, hDiv, vDiv, yMin, yMax, topFace, bottomFace) {
 			if ((vDiv < 2) || (hDiv < 3)) {
 				throw 'setSphere(). invalid args. hDiv >= 3, vDiv >= 2';
 			}
 			var floatStride = this.mVertexFormat.stride / 4;
 			// 一旦重複しない頂点を生成して座標のみ入れていく
-			var vertexCount = ((vDiv - 1) * hDiv) + 2;
+			var vertexCount = (vDiv + 1) * hDiv;
 			var vertices = new Float32Array(vertexCount * floatStride);
-			var p = [0, 1, 0];
-			var uv = [0, 0];
 			var index = 0;
-			this.setVertex(vertices, index, p, p, uv);
-			++index;
-			for (var vIndex = 1; vIndex < vDiv; ++vIndex) {
-				var phi = Math.PI * vIndex / vDiv;
-				p[1] = Math.cos(phi);
-				var xy = Math.sin(phi);
+			var p = [0, 0];
+			var yRange = yMax - yMin;
+			for (var vIndex = 0; vIndex <= vDiv; ++vIndex) {
+				p[1] = yMax - (yRange * vIndex / vDiv);
 				for (var hIndex = 0; hIndex < hDiv; ++hIndex) {
 					var theta = Math.PI * 2 * hIndex / hDiv;
-					p[0] = Math.cos(theta) * xy;
-					p[2] = Math.sin(theta) * xy;
-					this.setVertex(vertices, index, p, p, uv);
+					p[0] = theta;
+					this.setVertex(vertices, index, p);
 					++index;
 				}
 			}
-			p[0] = 0;
-			p[1] = -1;
-			p[2] = 0;
-			this.setVertex(vertices, index, p, p, uv);
-			++index;
 			console.assert(index === vertexCount, index + " !== " + vertexCount);
 
-			var indexCount = ((vDiv - 2) * hDiv * 6) + (2 * hDiv * 3); // 南極と北極を除いた部分は帯ごとに6頂点、極は3頂点
+			var indexCount = ((hDiv - 2) * 3 * 2) + (vDiv * hDiv * 6); // 蓋2枚と側面
 			var indices = new Uint16Array(indexCount);
-			// 北極
-			var northPole = 0;
-			index = 0;
-			for (var i = 0; i < hDiv; ++i) {
-				var hNext = ((i + 1) >= hDiv) ? 0 : (i + 1);
-				indices[index + 0] = northPole;
-				indices[index + 1] = 1 + hNext;
-				indices[index + 2] = 1 + i;
-				index += 3;
+			var index = 0;
+			// 上面
+			if (topFace){
+				for (var i = 0; i < (hDiv - 2); ++i) {
+					indices[index + 0] = 0;
+					indices[index + 1] = i + 2;
+					indices[index + 2] = i + 1;
+					index += 3;
+				}
 			}
-			for (var vIndex = 1; vIndex < (vDiv - 1); ++vIndex) {
+			// 側面
+			for (var vIndex = 1; vIndex <= vDiv; ++vIndex) {
 				for (var hIndex = 0; hIndex < hDiv; ++hIndex) {
 					var hNext = ((hIndex + 1) >= hDiv) ? 0 : (hIndex + 1);
-					indices[index + 0] = 1 + ((vIndex - 1) * hDiv) + hIndex;
-					indices[index + 1] = 1 + ((vIndex - 1) * hDiv) + hNext;
-					indices[index + 2] = 1 + (vIndex * hDiv) + hIndex;
-					indices[index + 3] = 1 + (vIndex * hDiv) + hNext;
+					indices[index + 0] = ((vIndex - 1) * hDiv) + hIndex;
+					indices[index + 1] = ((vIndex - 1) * hDiv) + hNext;
+					indices[index + 2] = (vIndex * hDiv) + hIndex;
+					indices[index + 3] = (vIndex * hDiv) + hNext;
 					indices[index + 4] = indices[index + 2];
 					indices[index + 5] = indices[index + 1];
 					index += 6;
 				}
 			}
-			var southPole = vertexCount - 1;
-			for (var i = 0; i < hDiv; ++i) {
-				var hNext = ((i + 1) >= hDiv) ? 0 : (i + 1);
-				indices[index + 0] = southPole;
-				indices[index + 1] = 1 + ((vDiv - 2) * hDiv) + i;
-				indices[index + 2] = 1 + ((vDiv - 2) * hDiv) + hNext;
-				index += 3;
+			// 下面
+			if (bottomFace){
+				var base = vertexCount - hDiv;
+				for (var i = 0; i < (hDiv - 2); ++i) {
+					indices[index + 0] = base;
+					indices[index + 1] = base + i + 1; // 下面はひっくりかえす
+					indices[index + 2] = base + i + 2;
+					index += 3;
+				}
 			}
-			console.assert(index === indexCount, index + " !== " + indexCount);
+			indexCount = index;
 
 			this.mVertexBuffer = new Kayac.VertexBuffer({
 				gpu: gpu,
@@ -2594,11 +2434,9 @@ void main(){
 		};
 		Kayac.Mesh.generateVertexFormat = function () {
 			var ret = {
-				stride: 32,
+				stride: 8,
 				elements: [
-					{ offset: 0, vectorDimension: 3, name: 'aPosition' },
-					{ offset: 12, vectorDimension: 3, name: 'aNormal' },
-					{ offset: 24, vectorDimension: 2, name: 'aTexCoord' },
+					{ offset: 0, vectorDimension: 2, name: 'aCoord' },
 				]
 			};
 			return ret;
@@ -2606,28 +2444,12 @@ void main(){
 		Kayac.Mesh.prototype.setVertex = function (
 			data,
 			index,
-			position,
-			normal,
-			texCoord) {
+			coord) {
 
 			var offset = index * this.mVertexFormat.stride / 4;
-			Kayac.copyArray(data, offset + 0, position, 0, 3);
-			Kayac.copyArray(data, offset + 3, normal, 0, 3);
-			Kayac.copyArray(data, offset + 6, texCoord, 0, 2);
+			Kayac.copyArray(data, offset + 0, coord, 0, 2);
 		};
-		Kayac.Mesh.prototype.setVertex = function (
-			data,
-			index,
-			position,
-			normal,
-			texCoord) {
-
-			var offset = index * this.mVertexFormat.stride / 4;
-			Kayac.copyArray(data, offset + 0, position, 0, 3);
-			Kayac.copyArray(data, offset + 3, normal, 0, 3);
-			Kayac.copyArray(data, offset + 6, texCoord, 0, 2);
-		};
-		Kayac.Mesh.prototype.draw = function (gpu, pvwMatrix, wMatrix, wMatrixInvTransposed, albedo) {
+		Kayac.Mesh.prototype.draw = function (gpu, pvwMatrix, wMatrix, wMatrixInvTransposed, albedo, polynominal) {
 			gpu.setVertexBuffer(this.mVertexBuffer);
 			gpu.setIndexBuffer(this.mIndexBuffer);
 			gpu.setShader(this.mShader);
@@ -2648,8 +2470,8 @@ void main(){
 			gpu.setConstant('uToWorldNormal0', [m.m00, m.m01, m.m02]);
 			gpu.setConstant('uToWorldNormal1', [m.m10, m.m11, m.m12]);
 			gpu.setConstant('uToWorldNormal2', [m.m20, m.m21, m.m22]);
-
 			gpu.setConstant('uAlbedo', albedo);
+			gpu.setConstant('uPolynominal', polynominal)
 			// TODO: ライトパラメタ
 			gpu.draw(this.mVertexCount, Kayac.Gpu.Primitive.Triangle, 0);
 		};
@@ -2716,47 +2538,47 @@ void main(){
 		};
 
 		// SpringDamper
-		Kayac.SpringDamper = function(){
+		Kayac.SpringDamper = function () {
 			this.value = 0;
 			this.goal = 0;
 			this.velocity = 0;
 			this.stiffness = 0;
 			this.damping = 0;
 		};
-		Kayac.SpringDamper.prototype.setData = function(data){
+		Kayac.SpringDamper.prototype.setData = function (data) {
 			this.value = data.start;
 			this.goal = data.goal;
 			this.velocity = data.velocity;
 			this.stiffness = data.stiffness;
 			this.damping = data.damping;
 		};
-		Kayac.SpringDamper.prototype.update = function(dt){
+		Kayac.SpringDamper.prototype.update = function (dt) {
 			var d = this.goal - this.value;
 			var a = (d * this.stiffness) - (this.velocity * this.damping);
 			this.velocity += a * dt;
 			this.value += this.velocity * dt;
 		};
-		Kayac.SpringDamper.prototype.converge = function(){
+		Kayac.SpringDamper.prototype.converge = function () {
 			this.velocity = 0;
 			this.value = this.goal;
 		};
 
 		// SpringDamper2
-		Kayac.SpringDamper2 = function(){
+		Kayac.SpringDamper2 = function () {
 			this.value = Kayac.V2.createXy(0, 0);
 			this.goal = Kayac.V2.createXy(0, 0);
 			this.velocity = Kayac.V2.createXy(0, 0);
 			this.stiffness = 0;
 			this.damping = 0;
 		};
-		Kayac.SpringDamper2.prototype.setData = function(data){
+		Kayac.SpringDamper2.prototype.setData = function (data) {
 			this.value.setA(data.start);
 			this.goal.setA(data.goal);
 			this.velocity.setA(data.velocity);
 			this.stiffness = data.stiffness;
 			this.damping = data.damping;
 		};
-		Kayac.SpringDamper2.prototype.update = function(dt){
+		Kayac.SpringDamper2.prototype.update = function (dt) {
 			var dx = this.goal.x - this.value.x;
 			var dy = this.goal.y - this.value.y;
 			var ax = (dx * this.stiffness) - (this.velocity.x * this.damping);
@@ -2766,67 +2588,67 @@ void main(){
 			this.value.x += this.velocity.x * dt;
 			this.value.y += this.velocity.y * dt;
 		};
-		Kayac.SpringDamper2.prototype.converge = function(){
+		Kayac.SpringDamper2.prototype.converge = function () {
 			this.velocity.setxy(0, 0);
 			this.value.setV(this.goal);
 		};
 
 		// SpriteAnimator
-		Kayac.SpriteAnimator = function(){
+		Kayac.SpriteAnimator = function () {
 			this.position = null;
 			this.rotation = null;
 			this.scale = null;
 			this.opacity = null;
 		};
-		Kayac.SpriteAnimator.prototype.setAnimation = function(animation){
+		Kayac.SpriteAnimator.prototype.setAnimation = function (animation) {
 			var data = animation.position;
-			if (data){
+			if (data) {
 				this.position = new Kayac.SpringDamper2();
 				this.position.setData(data);
 			}
 			data = animation.scale;
-			if (data){
+			if (data) {
 				this.scale = new Kayac.SpringDamper2();
 				this.scale.setData(data);
 			}
 			data = animation.opacity;
-			if (data){
+			if (data) {
 				this.opacity = new Kayac.SpringDamper();
 				this.opacity.setData(data);
 			}
 		};
-		Kayac.SpriteAnimator.prototype.update = function(deltaTime){
-			if (this.position !== null){
+		Kayac.SpriteAnimator.prototype.update = function (deltaTime) {
+			if (this.position !== null) {
 				this.position.update(deltaTime);
 			}
-			if (this.scale !== null){
+			if (this.scale !== null) {
 				this.scale.update(deltaTime);
 			}
-			if (this.opacity !== null){
+			if (this.opacity !== null) {
 				this.opacity.update(deltaTime);
 			}
 		};
-		Kayac.SpriteAnimator.prototype.apply = function(transform){
-			if (this.position !== null){
+		Kayac.SpriteAnimator.prototype.apply = function (transform) {
+			if (this.position !== null) {
 				transform.position[0] = this.position.value.x;
 				transform.position[1] = this.position.value.y;
 			}
-			if (this.scale !== null){
+			if (this.scale !== null) {
 				transform.scale[0] = this.scale.value.x;
 				transform.scale[1] = this.scale.value.y;
 			}
-			if (this.opacity !== null){
+			if (this.opacity !== null) {
 				transform.opacity = this.opacity.value;
 			}
 		};
-		Kayac.SpriteAnimator.prototype.converge = function(){
-			if (this.position !== null){
+		Kayac.SpriteAnimator.prototype.converge = function () {
+			if (this.position !== null) {
 				this.position.converge();
 			}
-			if (this.scale !== null){
+			if (this.scale !== null) {
 				this.scale.converge();
 			}
-			if (this.opacity !== null){
+			if (this.opacity !== null) {
 				this.opacity.converge();
 			}
 		};
@@ -2838,21 +2660,21 @@ void main(){
 			this.originalTransform = null;
 			this.animator = null;
 		};
-		Kayac.SpriteInstance.prototype.setAnimation = function(animation){
-			if (this.animator === null){
+		Kayac.SpriteInstance.prototype.setAnimation = function (animation) {
+			if (this.animator === null) {
 				this.animator = new Kayac.SpriteAnimator();
 				this.originalTransform = new Kayac.SpriteTransform();
 				this.originalTransform.set(this.transform);
 			}
 			this.animator.setAnimation(animation);
 		};
-		Kayac.SpriteInstance.prototype.resetAnimation = function(){
-			if (this.animator !== null){
+		Kayac.SpriteInstance.prototype.resetAnimation = function () {
+			if (this.animator !== null) {
 				this.transform.set(this.oirignalTransform);
 			}
 		};
-		Kayac.SpriteInstance.prototype.updateAnimation = function(deltaTime){
-			if (this.animator !== null){
+		Kayac.SpriteInstance.prototype.updateAnimation = function (deltaTime) {
+			if (this.animator !== null) {
 				this.animator.update(deltaTime);
 				this.animator.apply(this.transform);
 			}
@@ -2894,7 +2716,7 @@ void main(){
 			this.mInstances.push(spriteInstance);
 		};
 		Kayac.SpriteRenderer.prototype.updateAnimation = function (deltaTime) {
-			for (var i = 0; i < this.mInstances.length; ++i){
+			for (var i = 0; i < this.mInstances.length; ++i) {
 				this.mInstances[i].updateAnimation(deltaTime);
 			}
 		};
@@ -2929,7 +2751,7 @@ void main(){
 
 			// 色まとめてセット TODO: そのうちRGBも入れるか?
 			var alpha = transform.opacity;
-			for (var i = 0; i < 4; i++){
+			for (var i = 0; i < 4; i++) {
 				buffer[offset + (i * floatStride) + 4] = 1;
 				buffer[offset + (i * floatStride) + 5] = 1;
 				buffer[offset + (i * floatStride) + 6] = 1;
@@ -3009,7 +2831,7 @@ void main(){
 			this.texcoordOffset = [0, 0];
 			this.opacity = 1;
 		};
-		Kayac.SpriteTransform.prototype.set = function(a){
+		Kayac.SpriteTransform.prototype.set = function (a) {
 			this.name = a.name;
 			this.pivot[0] = a.pivot[0];
 			this.pivot[1] = a.pivot[1];
@@ -3256,7 +3078,15 @@ void main(){
 					damping: 0
 				}
 			}
-		]
+		];
+		UnkoNenga.unkoScaleFixAnimation = {
+			"albedo": {
+				start: [2, 2, 2, 1],
+				goal: [1, 0.3, 1, 1],
+				stiffness: 10,
+				damping: 1
+			}
+		};
 		// 配置データ
 		UnkoNenga.uiTransforms = [
 			{
@@ -3517,6 +3347,166 @@ void main(){
 
 	<script>
 		"use strict";
+		var UnkoNenga = UnkoNenga || {};
+
+		UnkoNenga.Unko = function (gpu, shader, vertexFormat, plateInterval, plateThickness, scaleMin, scaleMax) {
+			this.plateInterval = plateInterval;
+			this.plateThickness = plateThickness;
+			this.scaleMin = scaleMin;
+			this.scaleMax = scaleMax;
+			var hDiv = 64;
+			var vDiv = 32;
+			this.mesh = new Kayac.Mesh(shader, vertexFormat, 'unkoMesh');
+			this.mesh.setCylinder(gpu, hDiv, vDiv, -1, 1, true, true);
+
+			// ツノ
+			this.hornMesh = new Kayac.Mesh(shader, vertexFormat, 'unkoHornMesh');
+			hDiv = 16;
+			vDiv = 16;
+			this.hornMesh.setCylinder(gpu, hDiv, vDiv, -1, 0, true, false);
+
+			this.transform = new Kayac.Transform();
+			this.transforms = [];
+			this.scales = [];
+			for (var i = 0; i < this.Parts.Count; i++) {
+				this.transforms[i] = new Kayac.Transform();
+				this.scales[i] = 1;
+			}
+
+			this.transforms[this.Parts.Bottom].position = Kayac.V3.createXyz(0, -this.plateInterval * 2, 0);
+			this.transforms[this.Parts.Top].position = Kayac.V3.createXyz(0, this.plateInterval * 2, 0);
+			this.transforms[this.Parts.Horn].position = Kayac.V3.createXyz(0, this.plateInterval * 4, 0);
+
+			this.scaleSpeed = 0;
+			this.scaleIndex = -1;
+
+			this.fixFlash = new Kayac.SpringDamper();
+			this.fixFlash.setData(UnkoNenga.unkoScaleFixAnimation);
+
+			this.resetScale();
+		};
+		UnkoNenga.Unko.prototype.Parts = {
+			Bottom: 0,
+			Middle: 1,
+			Top: 2,
+			Horn: 3,
+			Count: 4,
+		};
+		UnkoNenga.Unko.prototype.getScaleValue = function (partsIndex) {
+			return this.scales[partsIndex];
+		};
+
+		UnkoNenga.Unko.prototype.update = function (time, deltaTime) {
+			var qx = new Kayac.Q();
+			var rotX = Math.PI * (0.25 + (0.125 * Math.sin(time * 0.0007)));
+			qx.setRotation(Kayac.V3.createXyz(1, 0, 0), rotX);
+			var qy = new Kayac.Q();
+			qy.setRotation(Kayac.V3.createXyz(0, 1, 0), time * 0.001);
+			var q = new Kayac.Q();
+			q.setMul(qy, qx);
+			this.transform.rotation = q;
+
+			if (this.scaleIndex >= 0) {
+				var s = this.scales[this.scaleIndex];
+				s += this.scaleSpeed * deltaTime;
+				if (s > this.scaleMax) {
+					this.scaleSpeed = -Math.abs(this.scaleSpeed);
+				} else if (s < this.scaleMin) {
+					this.scaleSpeed = Math.abs(this.scaleSpeed);
+				}
+				this.scales[this.scaleIndex] = s;
+			}
+		};
+
+		UnkoNenga.Unko.prototype.draw = function (
+			matrixStack,
+			gpu,
+			cameraMatrix,
+			bottomTransparent,
+			middleTransparent,
+			topTransparent) {
+
+			var pvwm = new Kayac.M44();
+			var m = this.transform.getMatrix();
+			matrixStack.pushMul(m);
+			gpu.setTexture('uSampler', null);
+
+			var albedo = [0, 0, 0, 0];
+			var transparentFlags = [bottomTransparent, middleTransparent, topTransparent];
+			var polynominal = [0, 0, -(this.scaleMin - 0.4), -0.1];
+			for (var i = 0; i < this.Parts.Count - 1; ++i) {
+				this.setTransparency(gpu, albedo, transparentFlags[i]);
+				polynominal[0] = this.scales[i];
+				this.drawMesh(
+					gpu,
+					matrixStack,
+					pvwm,
+					this.transforms[i],
+					this.mesh,
+					cameraMatrix,
+					albedo,
+					polynominal);
+			}
+			// 角
+			this.setTransparency(gpu, albedo, transparentFlags[this.Parts.Top]); // 角はトップと同じ
+			var topScale = this.scales[this.Parts.Top];
+			polynominal[0] = 0;
+			polynominal[1] = -0.1 * topScale;
+			polynominal[2] = 0;
+			polynominal[3] = -0.3 * topScale;
+			this.drawMesh(
+				gpu,
+				matrixStack,
+				pvwm,
+				this.transforms[this.Parts.Horn],
+				this.hornMesh,
+				cameraMatrix,
+				albedo,
+				polynominal);
+			matrixStack.pop();
+		};
+		UnkoNenga.Unko.prototype.resetScale = function () {
+			this.scales[this.Parts.Bottom] = 2;
+			this.scales[this.Parts.Middle] = 1.5;
+			this.scales[this.Parts.Top] = 1;
+			this.scales[this.Parts.Horn] = 1;
+			this.transforms[this.Parts.Bottom].scale.setXyz(1, this.plateThickness, 1);
+			this.transforms[this.Parts.Middle].scale.setXyz(1, this.plateThickness, 1);
+			this.transforms[this.Parts.Top].scale.setXyz(1, this.plateThickness, 1);
+			this.transforms[this.Parts.Horn].scale.setXyz(1, this.plateThickness, 1);
+		};
+		UnkoNenga.Unko.prototype.setTransparency = function (gpu, albedoOut, isTransparent) {
+			if (isTransparent) {
+				gpu.setBlendEnabled(true);
+				gpu.setDepthTest(true, false);
+				albedoOut[0] = 0.5;
+				albedoOut[1] = 0.5;
+				albedoOut[2] = 0.5;
+				albedoOut[3] = 0.5;
+			} else {
+				gpu.setBlendEnabled(false);
+				gpu.setDepthTest(true, true);
+				albedoOut[0] = 1;
+				albedoOut[1] = 0.5;
+				albedoOut[2] = 1;
+				albedoOut[3] = 1;
+			}
+		};
+		UnkoNenga.Unko.prototype.drawMesh = function (gpu, matrixStack, pvwm, transform, mesh, pvm, albedo, polynominal) {
+			var m = transform.getMatrix();
+			matrixStack.pushMul(m);
+			var wm = matrixStack.top();
+			pvwm.setMul44x34(pvm, wm);
+			var nm = new Kayac.M33(); // 法線変換行列
+			nm.setInvTranspose34(wm);
+			mesh.draw(gpu, pvwm, wm, nm, albedo, polynominal);
+			matrixStack.pop();
+		};
+		UnkoNenga.Unko.prototype.startScaling = function (speed, index) {
+			this.scaleIndex = index;
+			this.scaleSpeed = speed;
+		};
+
 		(function () {
 			var uiAtlas = UnkoNenga.uiAtlas;
 			// データ検索テーブル生成
@@ -3531,9 +3521,9 @@ void main(){
 			var requestAspect = 9 / 16;
 			var logicalWidth = 720;
 			var logicalHeight = logicalWidth / requestAspect;
-			var plateThickness = 0.8;
+			var plateThickness = 0.6;
 			var plateInterval = 0.6;
-			var scaleMin = 0.1;
+			var scaleMin = 0.9;
 			var scaleMax = 3;
 			var bottomScaleSpeed = 2;
 			var middleScaleSpeed = 4;
@@ -3558,18 +3548,12 @@ void main(){
 				textures: {},
 				loadingTextureCount: -1,
 				time: null,
-				bottomMesh: null,
-				middleMesh: null,
-				topMesh: null,
 				matrixStack: null,
-				unkoTransform: null,
-				bottomTransform: null,
-				middleTransform: null,
-				topTransform: null,
 				deltaTime: 0,
 				scene: null,
 				bgm: null,
 				audioExt: null,
+				unko: null
 			};
 			var setResolution = function (canvas, requestAspect) {
 				var windowWidth = window.innerWidth;
@@ -3586,17 +3570,6 @@ void main(){
 				canvas.height = Math.round(windowHeight * 0.9);
 				console.log('logical: ' + logicalWidth + 'x' + logicalHeight + ' actual: ' + windowWidth + 'x' + windowHeight);
 			};
-			var updateUnkoRotation = function(){
-				var qx = new Kayac.Q();
-				var rotX = Math.PI * (0.25 + (0.125 * Math.sin(state.time * 0.0007)));
-				qx.setRotation(Kayac.V3.createXyz(1, 0, 0), rotX);
-				var qy = new Kayac.Q();
-				qy.setRotation(Kayac.V3.createXyz(0, 1, 0), state.time * 0.001);
-				var q = new Kayac.Q();
-				q.setMul(qy, qx);
-				state.unkoTransform.rotation = q;
-			};
-
 			var loadingScene = {
 				name: 'loading',
 				update: function () {
@@ -3612,8 +3585,11 @@ void main(){
 			};
 			var titleScene = {
 				name: 'title',
+				bottomFixFlash: null,
+				middleFixFlash: null,
+				topFixFlash: null,
 				initialize: function () {
-					resetUnkoScale();
+					state.unko.resetScale();
 					var button = state.spriteInstances['btm_start'];
 					button.setAnimation(uiAnimations['button_loop']);
 				},
@@ -3621,7 +3597,7 @@ void main(){
 					if (state.justDown === true) {
 						changeScene(gameScene);
 					}
-					updateUnkoRotation();
+					state.unko.update(state.time, state.deltaTime);
 				},
 				draw: function () {
 					state.gpu.clear(1, 1, 1, 1); // まずクリア。バグってるかわかるように派手ピンクで塗る
@@ -3630,7 +3606,7 @@ void main(){
 					drawBackground(camera2dMatrix);
 					// ウンコ
 					var camera3dMatrix = state.camera3d.getMatrix();
-					drawUnko(camera3dMatrix, true, true, true);
+					state.unko.draw(state.matrixStack, state.gpu, camera3dMatrix, true, true, true);
 
 					state.gpu.setBlendEnabled(true); // アルファブレンド
 					state.gpu.setDepthTest(false, false); // Zテストしないし書き込まない
@@ -3652,10 +3628,9 @@ void main(){
 			var gameScene = {
 				name: 'game',
 				progress: 0,
-				scaleSpeed: 0,
 				initialize: function () {
 					this.progress = 0;
-					this.scaleSpeed = bottomScaleSpeed;
+					state.unko.startScaling(bottomScaleSpeed, state.unko.Parts.Bottom);
 					var button = state.spriteInstances['btm_tap'];
 					button.setAnimation(uiAnimations['button_loop']);
 				},
@@ -3663,43 +3638,20 @@ void main(){
 					if (this.progress === 0) {
 						if (state.justDown === true) {
 							this.progress += 1;
-							this.scaleSpeed = middleScaleSpeed;
+							state.unko.startScaling(middleScaleSpeed, state.unko.Parts.Middle);
 						}
-						var s = state.bottomTransform.scale.x;
-						s += this.scaleSpeed * state.deltaTime;
-						if (s > scaleMax) {
-							this.scaleSpeed = -Math.abs(this.scaleSpeed);
-						} else if (s < scaleMin) {
-							this.scaleSpeed = Math.abs(this.scaleSpeed);
-						}
-						state.bottomTransform.scale = Kayac.V3.createXyz(s, plateThickness, s);
 					} else if (this.progress === 1) {
 						if (state.justDown === true) {
 							this.progress += 1;
-							this.scaleSpeed = topScaleSpeed;
+							state.unko.startScaling(topScaleSpeed, state.unko.Parts.Top);
 						}
-						var s = state.middleTransform.scale.x;
-						s += this.scaleSpeed * state.deltaTime;
-						if (s > scaleMax) {
-							this.scaleSpeed = -Math.abs(this.scaleSpeed);
-						} else if (s < scaleMin) {
-							this.scaleSpeed = Math.abs(this.scaleSpeed);
-						}
-						state.middleTransform.scale = Kayac.V3.createXyz(s, plateThickness, s);
 					} else if (this.progress === 2) {
-						if (state.justDown=== true) {
+						if (state.justDown === true) {
 							changeScene(resultScene);
+							state.unko.startScaling(0, 0);
 						}
-						var s = state.topTransform.scale.x;
-						s += this.scaleSpeed * state.deltaTime;
-						if (s > scaleMax) {
-							this.scaleSpeed = -Math.abs(this.scaleSpeed);
-						} else if (s < scaleMin) {
-							this.scaleSpeed = Math.abs(this.scaleSpeed);
-						}
-						state.topTransform.scale = Kayac.V3.createXyz(s, plateThickness, s);
 					}
-					updateUnkoRotation();
+					state.unko.update(state.time, state.deltaTime);
 				},
 				draw: function () {
 					state.gpu.clear(1, 1, 1, 1); // まずクリア。バグってるかわかるように派手ピンクで塗る
@@ -3708,7 +3660,9 @@ void main(){
 					drawBackground(camera2dMatrix);
 					// ウンコ
 					var camera3dMatrix = state.camera3d.getMatrix();
-					drawUnko(
+					state.unko.draw(
+						state.matrixStack,
+						state.gpu,
 						camera3dMatrix,
 						this.progress < 0,
 						this.progress < 1,
@@ -3730,26 +3684,38 @@ void main(){
 					state.spriteRenderer.draw(state.gpu, camera2dMatrix)
 				}
 			};
+			var isInRange = function (v, min, max) {
+				return ((v >= min) && (v <= max));
+			};
+			var isNearlyEqual = function (v, ref, range) {
+				return isInRange(v, ref - range, ref + range);
+			};
 			var resultScene = {
 				name: 'result',
 				sizeScore: 0,
 				balanceScore: 0,
 				initialize: function () {
 					// 採点。絶対仕様変わるよね
-					var bottomSize = state.bottomTransform.scale.x;
-					var middleSize = state.middleTransform.scale.x;
-					var topSize = state.topTransform.scale.x;
+					var bottomSize = state.unko.getScaleValue(state.unko.Parts.Bottom);
+					var middleSize = state.unko.getScaleValue(state.unko.Parts.Middle);
+					var topSize = state.unko.getScaleValue(state.unko.Parts.Top);
 					var sizeSum = bottomSize + middleSize + topSize;
-					if (sizeSum >= 6){
+					if (sizeSum >= 6) {
 						this.sizeScore = 2;
-					}else if (sizeSum >= 3){
+					} else if (sizeSum >= 3) {
 						this.sizeScore = 1;
-					}else{
+					} else {
 						this.sizeScore = 0;
 					}
-					if ((bottomSize > middleSize) && (middleSize > topSize)){
-						this.balanceScore = 1;
-					}else{
+					if ((bottomSize > middleSize) && (middleSize > topSize)) {
+						var bmRatio = bottomSize / middleSize;
+						var mtRatio = middleSize / topSize;
+						if (isNearlyEqual(bmRatio, 2 / 1.5, 0.2) && isNearlyEqual(mtRatio, 1.5 / 1, 0.2)) {
+							this.balanceScore = 2;
+						} else {
+							this.balanceScore = 1;
+						}
+					} else {
 						this.balanceScore = 0;
 					}
 				},
@@ -3757,7 +3723,7 @@ void main(){
 					if (state.justDown === true) {
 						changeScene(titleScene);
 					}
-					updateUnkoRotation();
+					state.unko.update(state.time, state.deltaTime);
 				},
 				draw: function () {
 					state.gpu.clear(1, 1, 1, 1); // まずクリア。バグってるかわかるように派手ピンクで塗る
@@ -3766,7 +3732,7 @@ void main(){
 					drawBackground(camera2dMatrix);
 					// ウンコ
 					var camera3dMatrix = state.camera3d.getMatrix();
-					drawUnko(camera3dMatrix, false, false, false);
+					state.unko.draw(state.matrixStack, state.gpu, camera3dMatrix, false, false, false);
 
 					state.gpu.setBlendEnabled(true); // アルファブレンド
 					state.gpu.setDepthTest(false, false); // Zテストしないし書き込まない
@@ -3801,17 +3767,16 @@ void main(){
 						}
 					} else {
 						addSprite('result_size_large');
-						if ((size === 3) && (balance === 1)) {
-							addSprite('result_balance_beautiful');
+						if (balance === 2) {
 							addSprite('result_text_cyoubiun');
+							addSprite('result_balance_beautiful');
+							console.log('choubiun');
+						} else if (balance === 1) {
+							addSprite('result_text_daibiun');
+							addSprite('result_balance_beautiful');
 						} else {
-							if (balance === 0) {
-								addSprite('result_text_daibsyuuun');
-								addSprite('result_balance_ugly');
-							} else if (balance === 1) {
-								addSprite('result_text_daibiun');
-								addSprite('result_balance_beautiful');
-							}
+							addSprite('result_text_daibsyuuun');
+							addSprite('result_balance_ugly');
 						}
 					}
 					state.spriteRenderer.draw(state.gpu, camera2dMatrix);
@@ -3845,14 +3810,6 @@ void main(){
 				state.spriteRenderer = new Kayac.SpriteRenderer(state.gpu, 32, state.vertexFormat2d, state.shader2d);
 				state.spriteRenderer.parentWidth = logicalWidth;
 				state.spriteRenderer.parentHeight = logicalHeight;
-				state.bottomMesh = new Kayac.Mesh(state.shader3d, state.vertexFormat3d, 'unkoBottom');
-				var hDiv = 64;
-				var vDiv = 16;
-				state.bottomMesh.setSphere(state.gpu, hDiv, vDiv);
-				state.middleMesh = new Kayac.Mesh(state.shader3d, state.vertexFormat3d, 'middleBottom');
-				state.middleMesh.setSphere(state.gpu, hDiv, vDiv);
-				state.topMesh = new Kayac.Mesh(state.shader3d, state.vertexFormat3d, 'topBottom');
-				state.topMesh.setSphere(state.gpu, hDiv, vDiv);
 			};
 			var mainLoop = function () {
 				var now = Date.now();
@@ -3903,11 +3860,6 @@ void main(){
 				Kayac.startLoadImage('bg.png', 'bg', onImageLoad);
 				Kayac.startLoadImage('uiAtlas.png', 'uiAtlas', onImageLoad);
 			};
-			var resetUnkoScale = function () {
-				state.bottomTransform.scale = Kayac.V3.createXyz(2, plateThickness, 2);
-				state.middleTransform.scale = Kayac.V3.createXyz(1.5, plateThickness, 1.5);
-				state.topTransform.scale = Kayac.V3.createXyz(1, plateThickness, 1);
-			};
 			var startAfterLoad = function () {
 				// 背景
 				var sprite = new Kayac.Sprite();
@@ -3923,14 +3875,14 @@ void main(){
 
 				// ウンコ初期化
 				state.matrixStack = new Kayac.MatrixStack();
-				state.unkoTransform = new Kayac.Transform();
-
-				state.bottomTransform = new Kayac.Transform();
-				state.middleTransform = new Kayac.Transform();
-				state.topTransform = new Kayac.Transform();
-
-				state.bottomTransform.position = Kayac.V3.createXyz(0, -plateInterval * 2, 0);
-				state.topTransform.position = Kayac.V3.createXyz(0, plateInterval * 2, 0);
+				state.unko = new UnkoNenga.Unko(
+					state.gpu,
+					state.shader3d,
+					state.vertexFormat3d,
+					plateInterval,
+					plateThickness,
+					scaleMin,
+					scaleMax);
 
 				// UI系初期化
 				// Transformをまず辞書化
@@ -3979,49 +3931,6 @@ void main(){
 						state.scene.initialize();
 					}
 				}
-			};
-			var drawUnko = function (camera3dMatrix, bottomTransparent, middleTransparent, topTransparent) {
-				var pvwm = new Kayac.M44();
-				var m = state.unkoTransform.getMatrix();
-				state.matrixStack.pushMul(m);
-				state.gpu.setTexture('uSampler', null);
-
-				var albedo = [0, 0, 0, 0];
-				setUnkoTransparency(albedo, bottomTransparent);
-				drawMesh(pvwm, state.bottomTransform, state.bottomMesh, camera3dMatrix, albedo);
-				setUnkoTransparency(albedo, middleTransparent);
-				drawMesh(pvwm, state.middleTransform, state.middleMesh, camera3dMatrix, albedo);
-				setUnkoTransparency(albedo, topTransparent);
-				drawMesh(pvwm, state.topTransform, state.topMesh, camera3dMatrix, albedo);
-
-				state.matrixStack.pop();
-			};
-			var setUnkoTransparency = function (albedoOut, isTransparent) {
-				if (isTransparent) {
-					state.gpu.setBlendEnabled(true);
-					state.gpu.setDepthTest(true, false);
-					albedoOut[0] = 0.5;
-					albedoOut[1] = 0.5;
-					albedoOut[2] = 0.5;
-					albedoOut[3] = 0.5;
-				} else {
-					state.gpu.setBlendEnabled(false);
-					state.gpu.setDepthTest(true, true);
-					albedoOut[0] = 1;
-					albedoOut[1] = 0.3;
-					albedoOut[2] = 1;
-					albedoOut[3] = 1;
-				}
-			};
-			var drawMesh = function (pvwm, transform, mesh, pvm, albedo) {
-				var m = transform.getMatrix();
-				state.matrixStack.pushMul(m);
-				var wm = state.matrixStack.top();
-				pvwm.setMul44x34(pvm, wm);
-				var nm = new Kayac.M33(); // 法線変換行列
-				nm.setInvTranspose34(wm);
-				state.topMesh.draw(state.gpu, pvwm, wm, nm, albedo);
-				state.matrixStack.pop();
 			};
 			var drawBackground = function (camera2dMatrix) {
 				if (state.backgroundSprite !== null) {
@@ -4091,7 +4000,7 @@ void main(){
 				e.preventDefault();
 				e.stopPropagation;
 			};
-			var onPointerDown = function(){
+			var onPointerDown = function () {
 				// クリックタイミングでbgm鳴ってなければ鳴らす
 				if (state.bgm === null) {
 					state.bgm = loadAudio('bgm');
