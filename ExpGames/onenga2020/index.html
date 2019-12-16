@@ -96,6 +96,7 @@ void main(){
 precision mediump float;
 uniform sampler2D uSampler;
 uniform vec4 uAlbedo;
+uniform vec3 uEmission;
 
 varying vec3 vNormal; // world
 varying vec3 vPosition; // world
@@ -110,10 +111,10 @@ void main(){
 //gl_FragColor = vec4(vNormal * 0.5 + 0.5, 1); return;
 	float pi = 3.14159;
 	vec3 l = vec3(0.5773, 0.5773, -0.5773);
-	vec3 lightColor = vec3(0.5, 0.5, 0.5);
+	vec3 lightColor = vec3(0.4, 0.4, 0.4);
 	vec3 eyePosition = vec3(0.0, 0.0, -10.0);
-	vec3 ambientDown = vec3(0.5, 0.5, 0.5);
-	vec3 ambientUp = vec3(0.4, 0.5, 0.6);
+	vec3 ambientDown = vec3(0.7, 0.5, 0.6);
+	vec3 ambientUp = vec3(0.6, 0.6, 0.6);
 	float f0 = 0.04;
 	float shininess = 256.0;
 
@@ -137,7 +138,7 @@ void main(){
 	vec3 specular = directSpecular + indirectSpecular;
 	specular /= (albedo.w == 0.0) ? 1.0 : albedo.w;
 
-	gl_FragColor.xyz = diffuse + specular;
+	gl_FragColor.xyz = diffuse + specular + uEmission;
 	gl_FragColor.w = albedo.w;
 }
 </script>
@@ -2346,6 +2347,41 @@ void main(){
 			x[1] = (-a1 + d) * 0.5;
 			return x;
 		};
+
+		// 連立方程式mx=vを解いて、xを求める。軸選択を行わない。途中で対角に0が現れたら詰む。m、b共に変更され、答えはvに入る。
+		// mはm[(row * N) + column]でアクセスする1次元配列で行列を表現する
+		Kayac.solveLinearSystem = function (m, v) {
+			var n = v.length;
+			for (var i = 0; i < n; ++i) {
+				var rcpPivot = 1 / m[(i * n) + i];
+				for (var j = i + 1; j < 4; ++j) {
+					var coeff = m[(j * n) + i] * rcpPivot;
+					for (var k = 0; k < 4; ++k) {
+						m[(j * n) + k] -= m[(i * n) + k] * coeff;
+					}
+					v[j] -= v[i] * coeff;
+				}
+			}
+
+			for (var i = 3; i >= 0; --i) {
+				var t = 1 / m[(i * n) + i];
+				m[(i * n) + i] *= t;
+				v[i] *= t;
+				for (var j = 0; j < i; ++j) {
+					v[j] -= v[i] * m[(j * n) + i];
+					m[(j * n) + i] = 0;
+				}
+			}
+		};
+
+		Kayac.evaluatePolynominal = function (a, x) {
+			var r = 0;
+			for (var i = (a.length - 1); i >= 0; --i) {
+				r *= x;
+				r += a[i];
+			}
+			return r;
+		};
 	</script>
 
 	<script id="3dLib">
@@ -2387,7 +2423,7 @@ void main(){
 			var indices = new Uint16Array(indexCount);
 			var index = 0;
 			// 上面
-			if (topFace){
+			if (topFace) {
 				for (var i = 0; i < (hDiv - 2); ++i) {
 					indices[index + 0] = 0;
 					indices[index + 1] = i + 2;
@@ -2409,7 +2445,7 @@ void main(){
 				}
 			}
 			// 下面
-			if (bottomFace){
+			if (bottomFace) {
 				var base = vertexCount - hDiv;
 				for (var i = 0; i < (hDiv - 2); ++i) {
 					indices[index + 0] = base;
@@ -2449,7 +2485,15 @@ void main(){
 			var offset = index * this.mVertexFormat.stride / 4;
 			Kayac.copyArray(data, offset + 0, coord, 0, 2);
 		};
-		Kayac.Mesh.prototype.draw = function (gpu, pvwMatrix, wMatrix, wMatrixInvTransposed, albedo, polynominal) {
+		Kayac.Mesh.prototype.draw = function (
+			gpu,
+			pvwMatrix,
+			wMatrix,
+			wMatrixInvTransposed,
+			albedo,
+			emission,
+			polynominal) {
+
 			gpu.setVertexBuffer(this.mVertexBuffer);
 			gpu.setIndexBuffer(this.mIndexBuffer);
 			gpu.setShader(this.mShader);
@@ -2471,6 +2515,7 @@ void main(){
 			gpu.setConstant('uToWorldNormal1', [m.m10, m.m11, m.m12]);
 			gpu.setConstant('uToWorldNormal2', [m.m20, m.m21, m.m22]);
 			gpu.setConstant('uAlbedo', albedo);
+			gpu.setConstant('uEmission', emission);
 			gpu.setConstant('uPolynominal', polynominal)
 			// TODO: ライトパラメタ
 			gpu.draw(this.mVertexCount, Kayac.Gpu.Primitive.Triangle, 0);
@@ -3028,32 +3073,109 @@ void main(){
 					"y": 2942
 				},
 				{
+					"name": "btm_twitter",
+					"width": 150,
+					"height": 46,
+					"x": 352,
+					"y": 2942
+				},
+				{
 					"name": "result_size_small",
 					"width": 148,
 					"height": 42,
-					"x": 352,
+					"x": 506,
 					"y": 2942
 				},
 				{
 					"name": "result_size_large",
 					"width": 138,
 					"height": 42,
-					"x": 504,
+					"x": 658,
 					"y": 2942
 				},
 				{
 					"name": "result_balance_ugly",
 					"width": 126,
 					"height": 42,
-					"x": 646,
+					"x": 800,
 					"y": 2942
 				},
 				{
 					"name": "result_size",
 					"width": 100,
 					"height": 42,
-					"x": 776,
-					"y": 2942
+					"x": 4,
+					"y": 2992
+				},
+				{
+					"name": "num_0",
+					"width": 48,
+					"height": 48,
+					"x": 108,
+					"y": 2992
+				},
+				{
+					"name": "num_1",
+					"width": 48,
+					"height": 48,
+					"x": 160,
+					"y": 2992
+				},
+				{
+					"name": "num_2",
+					"width": 48,
+					"height": 48,
+					"x": 212,
+					"y": 2992
+				},
+				{
+					"name": "num_3",
+					"width": 48,
+					"height": 48,
+					"x": 264,
+					"y": 2992
+				},
+				{
+					"name": "num_4",
+					"width": 48,
+					"height": 48,
+					"x": 316,
+					"y": 2992
+				},
+				{
+					"name": "num_5",
+					"width": 48,
+					"height": 48,
+					"x": 368,
+					"y": 2992
+				},
+				{
+					"name": "num_6",
+					"width": 48,
+					"height": 48,
+					"x": 420,
+					"y": 2992
+				},
+				{
+					"name": "num_7",
+					"width": 48,
+					"height": 48,
+					"x": 472,
+					"y": 2992
+				},
+				{
+					"name": "num_8",
+					"width": 48,
+					"height": 48,
+					"x": 524,
+					"y": 2992
+				},
+				{
+					"name": "num_9",
+					"width": 48,
+					"height": 48,
+					"x": 576,
+					"y": 2992
 				}
 			],
 			"width": 1024,
@@ -3080,11 +3202,33 @@ void main(){
 			}
 		];
 		UnkoNenga.unkoScaleFixAnimation = {
-			"albedo": {
-				start: [2, 2, 2, 1],
-				goal: [1, 0.3, 1, 1],
-				stiffness: 10,
-				damping: 1
+			"scale": {
+				start: 1,
+				goal: 1,
+				velocity: 20,
+				stiffness: 400,
+				damping: 15
+			},
+			"scaleFinal": {
+				start: 1,
+				goal: 1,
+				velocity: 30,
+				stiffness: 200,
+				damping: 10
+			},
+			"emission": {
+				start: 1,
+				goal: 0,
+				velocity: -2,
+				stiffness: 5,
+				damping: 7
+			},
+			"emissionFinal": {
+				start: 1,
+				goal: 0,
+				velocity: -0.5,
+				stiffness: 2,
+				damping: 3
 			}
 		};
 		// 配置データ
@@ -3191,7 +3335,7 @@ void main(){
 			{
 				"name": "result_text01",
 				"pivot": [0.5, 0.5],
-				"anchor": [0.5, 0.7],
+				"anchor": [0.5, 0.69],
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
@@ -3200,7 +3344,7 @@ void main(){
 			{
 				"name": "result_text03",
 				"pivot": [0.5, 0.5],
-				"anchor": [0.5, 0.9],
+				"anchor": [0.5, 0.91],
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
@@ -3262,6 +3406,15 @@ void main(){
 			},
 			{
 				"name": "btm_retry",
+				"pivot": [0.5, 1],
+				"anchor": [0.5, 0.99],
+				"scale": [1, 1],
+				"position": [0, 0],
+				"texcoordOffset": [0, 0],
+				"opacity": 1
+			},
+			{
+				"name": "btm_twitter",
 				"pivot": [1, 1],
 				"anchor": [0.99, 0.99],
 				"scale": [1, 1],
@@ -3349,39 +3502,39 @@ void main(){
 		"use strict";
 		var UnkoNenga = UnkoNenga || {};
 
-		UnkoNenga.Unko = function (gpu, shader, vertexFormat, plateInterval, plateThickness, scaleMin, scaleMax) {
+		UnkoNenga.Unko = function (gpu, shader, vertexFormat, plateInterval, plateThickness, scaleMin, scaleMax, topHeightFactor) {
 			this.plateInterval = plateInterval;
 			this.plateThickness = plateThickness;
 			this.scaleMin = scaleMin;
 			this.scaleMax = scaleMax;
+			this.topYMax = -1 + (2 * topHeightFactor);
 			var hDiv = 64;
 			var vDiv = 32;
-			this.mesh = new Kayac.Mesh(shader, vertexFormat, 'unkoMesh');
-			this.mesh.setCylinder(gpu, hDiv, vDiv, -1, 1, true, true);
-
-			// ツノ
-			this.hornMesh = new Kayac.Mesh(shader, vertexFormat, 'unkoHornMesh');
-			hDiv = 16;
-			vDiv = 16;
-			this.hornMesh.setCylinder(gpu, hDiv, vDiv, -1, 0, true, false);
+			this.meshes = [];
+			this.meshes[this.Parts.Bottom] = new Kayac.Mesh(shader, vertexFormat, 'unkoMeshBottom');
+			this.meshes[this.Parts.Bottom].setCylinder(gpu, hDiv, vDiv, -1, 1, true, true);
+			this.meshes[this.Parts.Middle] = new Kayac.Mesh(shader, vertexFormat, 'unkoMeshMiddle');
+			this.meshes[this.Parts.Middle].setCylinder(gpu, hDiv, vDiv, -1, 1, true, true);
+			this.meshes[this.Parts.Top] = new Kayac.Mesh(shader, vertexFormat, 'unkoMeshTop');
+			this.meshes[this.Parts.Top].setCylinder(gpu, hDiv, vDiv, -1, this.topYMax, true, true);
 
 			this.transform = new Kayac.Transform();
 			this.transforms = [];
 			this.scales = [];
+			this.fixFlashes = [];
 			for (var i = 0; i < this.Parts.Count; i++) {
 				this.transforms[i] = new Kayac.Transform();
 				this.scales[i] = 1;
+				this.fixFlashes[i] = new Kayac.SpringDamper();
 			}
 
 			this.transforms[this.Parts.Bottom].position = Kayac.V3.createXyz(0, -this.plateInterval * 2, 0);
 			this.transforms[this.Parts.Top].position = Kayac.V3.createXyz(0, this.plateInterval * 2, 0);
-			this.transforms[this.Parts.Horn].position = Kayac.V3.createXyz(0, this.plateInterval * 4, 0);
 
 			this.scaleSpeed = 0;
 			this.scaleIndex = -1;
-
-			this.fixFlash = new Kayac.SpringDamper();
-			this.fixFlash.setData(UnkoNenga.unkoScaleFixAnimation);
+			this.fixScaleAnim = new Kayac.SpringDamper();
+			this.fixScaleAnim.value = 1;
 
 			this.resetScale();
 		};
@@ -3389,8 +3542,7 @@ void main(){
 			Bottom: 0,
 			Middle: 1,
 			Top: 2,
-			Horn: 3,
-			Count: 4,
+			Count: 3,
 		};
 		UnkoNenga.Unko.prototype.getScaleValue = function (partsIndex) {
 			return this.scales[partsIndex];
@@ -3398,13 +3550,18 @@ void main(){
 
 		UnkoNenga.Unko.prototype.update = function (time, deltaTime) {
 			var qx = new Kayac.Q();
-			var rotX = Math.PI * (0.25 + (0.125 * Math.sin(time * 0.0007)));
+			var rotX = Math.PI * (0.2 + (0.15 * Math.sin(time * 0.0007)));
 			qx.setRotation(Kayac.V3.createXyz(1, 0, 0), rotX);
 			var qy = new Kayac.Q();
 			qy.setRotation(Kayac.V3.createXyz(0, 1, 0), time * 0.001);
 			var q = new Kayac.Q();
 			q.setMul(qy, qx);
 			this.transform.rotation = q;
+
+			this.fixScaleAnim.update(deltaTime);
+			this.transform.scale.x = this.fixScaleAnim.value;
+			this.transform.scale.y = this.fixScaleAnim.value;
+			this.transform.scale.z = this.fixScaleAnim.value;
 
 			if (this.scaleIndex >= 0) {
 				var s = this.scales[this.scaleIndex];
@@ -3415,6 +3572,10 @@ void main(){
 					this.scaleSpeed = Math.abs(this.scaleSpeed);
 				}
 				this.scales[this.scaleIndex] = s;
+			}
+
+			for (var i = 0; i < this.fixFlashes.length; ++i){
+				this.fixFlashes[i].update(deltaTime);
 			}
 		};
 
@@ -3433,47 +3594,94 @@ void main(){
 
 			var albedo = [0, 0, 0, 0];
 			var transparentFlags = [bottomTransparent, middleTransparent, topTransparent];
-			var polynominal = [0, 0, -(this.scaleMin - 0.4), -0.1];
-			for (var i = 0; i < this.Parts.Count - 1; ++i) {
+			var polynominal = [0, 0, 0, 0];
+			var emission = [0, 0, 0];
+			for (var i = 0; i < this.Parts.Count; ++i) {
 				this.setTransparency(gpu, albedo, transparentFlags[i]);
 				polynominal[0] = this.scales[i];
+				polynominal[1] = -0.1;
+				polynominal[2] = -this.scaleMin * 0.75;
+				if (i === 2) {
+					/*
+
+					y = d + cx + bx^2 + ax^3
+					y' = c + 2bx + 3ax^2
+
+					d + tMax*c + tMax^2*b + tMax^3*a = 0 // x=tMaxで値が0
+					c + 2*tMax*b + 3*tMax^2*a = v // x=tMaxでの傾き
+					d + t*c	+ t^2*b + t^3*a = s // x=tでの値
+					c + 2*t*b + 3*t^2*a = 0 // x=tでの傾き
+
+					この連立方程式を解く
+					*/
+					var t = -0.5;
+					var tMax = this.topYMax;
+					var tMax2 = tMax * tMax;
+					var tMax3 = tMax2 * tMax;
+					var t2 = t * t;
+					var t3 = t2 * t;
+					var m = [];
+					m[(0 * 4) + 0] = 1;
+					m[(0 * 4) + 1] = tMax;
+					m[(0 * 4) + 2] = tMax2;
+					m[(0 * 4) + 3] = tMax3;
+
+					m[(1 * 4) + 0] = 0;
+					m[(1 * 4) + 1] = 1;
+					m[(1 * 4) + 2] = 2 * tMax;
+					m[(1 * 4) + 3] = 3 * tMax2;
+
+					m[(2 * 4) + 0] = 1;
+					m[(2 * 4) + 1] = t;
+					m[(2 * 4) + 2] = t2;
+					m[(2 * 4) + 3] = t3;
+
+					m[(3 * 4) + 0] = 0;
+					m[(3 * 4) + 1] = 1;
+					m[(3 * 4) + 2] = 2 * t;
+					m[(3 * 4) + 3] = 3 * t2;
+
+					polynominal[0] = 0;
+					polynominal[1] = -0.1;
+					polynominal[2] = this.scales[2];
+					polynominal[3] = 0;
+
+					Kayac.solveLinearSystem(m, polynominal);
+				}
+				var emissionStrength = this.fixFlashes[i].value;
+				emission[0] = emissionStrength * albedo[0];
+				emission[1] = emissionStrength * albedo[1];
+				emission[2] = emissionStrength * albedo[2];
 				this.drawMesh(
 					gpu,
 					matrixStack,
 					pvwm,
 					this.transforms[i],
-					this.mesh,
+					this.meshes[i],
 					cameraMatrix,
 					albedo,
+					emission,
 					polynominal);
 			}
-			// 角
-			this.setTransparency(gpu, albedo, transparentFlags[this.Parts.Top]); // 角はトップと同じ
-			var topScale = this.scales[this.Parts.Top];
-			polynominal[0] = 0;
-			polynominal[1] = -0.1 * topScale;
-			polynominal[2] = 0;
-			polynominal[3] = -0.3 * topScale;
-			this.drawMesh(
-				gpu,
-				matrixStack,
-				pvwm,
-				this.transforms[this.Parts.Horn],
-				this.hornMesh,
-				cameraMatrix,
-				albedo,
-				polynominal);
 			matrixStack.pop();
+		};
+		UnkoNenga.Unko.prototype.flash = function(index){
+			var data = UnkoNenga.unkoScaleFixAnimation.emission;
+			this.fixFlashes[index].setData(data);
+		};
+		UnkoNenga.Unko.prototype.flashFinal = function(){
+			var data = UnkoNenga.unkoScaleFixAnimation.emissionFinal;
+			for (var i = 0; i < this.fixFlashes.length; ++i){
+				this.fixFlashes[i].setData(data);
+			}
 		};
 		UnkoNenga.Unko.prototype.resetScale = function () {
 			this.scales[this.Parts.Bottom] = 2;
 			this.scales[this.Parts.Middle] = 1.5;
 			this.scales[this.Parts.Top] = 1;
-			this.scales[this.Parts.Horn] = 1;
 			this.transforms[this.Parts.Bottom].scale.setXyz(1, this.plateThickness, 1);
 			this.transforms[this.Parts.Middle].scale.setXyz(1, this.plateThickness, 1);
 			this.transforms[this.Parts.Top].scale.setXyz(1, this.plateThickness, 1);
-			this.transforms[this.Parts.Horn].scale.setXyz(1, this.plateThickness, 1);
 		};
 		UnkoNenga.Unko.prototype.setTransparency = function (gpu, albedoOut, isTransparent) {
 			if (isTransparent) {
@@ -3487,19 +3695,29 @@ void main(){
 				gpu.setBlendEnabled(false);
 				gpu.setDepthTest(true, true);
 				albedoOut[0] = 1;
-				albedoOut[1] = 0.5;
+				albedoOut[1] = 0.6;
 				albedoOut[2] = 1;
 				albedoOut[3] = 1;
 			}
 		};
-		UnkoNenga.Unko.prototype.drawMesh = function (gpu, matrixStack, pvwm, transform, mesh, pvm, albedo, polynominal) {
+		UnkoNenga.Unko.prototype.drawMesh = function (
+			gpu,
+			matrixStack,
+			pvwm,
+			transform,
+			mesh,
+			pvm,
+			albedo,
+			emission,
+			polynominal) {
+
 			var m = transform.getMatrix();
 			matrixStack.pushMul(m);
 			var wm = matrixStack.top();
 			pvwm.setMul44x34(pvm, wm);
 			var nm = new Kayac.M33(); // 法線変換行列
 			nm.setInvTranspose34(wm);
-			mesh.draw(gpu, pvwm, wm, nm, albedo, polynominal);
+			mesh.draw(gpu, pvwm, wm, nm, albedo, emission, polynominal);
 			matrixStack.pop();
 		};
 		UnkoNenga.Unko.prototype.startScaling = function (speed, index) {
@@ -3523,12 +3741,13 @@ void main(){
 			var logicalHeight = logicalWidth / requestAspect;
 			var plateThickness = 0.6;
 			var plateInterval = 0.6;
-			var scaleMin = 0.9;
+			var scaleMin = 0.5;
 			var scaleMax = 3;
 			var bottomScaleSpeed = 2;
 			var middleScaleSpeed = 4;
 			var topScaleSpeed = 6;
 			var maxDeltaTime = 0.1;
+			var topHeightFactor = 1.6; // 一番上のを他の段の何倍の高さにするか(ツノを含むので)
 
 			//フレームをまたいで保持するデータ
 			var state = {
@@ -3585,9 +3804,6 @@ void main(){
 			};
 			var titleScene = {
 				name: 'title',
-				bottomFixFlash: null,
-				middleFixFlash: null,
-				topFixFlash: null,
 				initialize: function () {
 					state.unko.resetScale();
 					var button = state.spriteInstances['btm_start'];
@@ -3638,16 +3854,22 @@ void main(){
 					if (this.progress === 0) {
 						if (state.justDown === true) {
 							this.progress += 1;
+							state.unko.fixScaleAnim.setData(UnkoNenga.unkoScaleFixAnimation.scale);
+							state.unko.flash(state.unko.Parts.Bottom);
 							state.unko.startScaling(middleScaleSpeed, state.unko.Parts.Middle);
 						}
 					} else if (this.progress === 1) {
 						if (state.justDown === true) {
 							this.progress += 1;
+							state.unko.fixScaleAnim.setData(UnkoNenga.unkoScaleFixAnimation.scale);
+							state.unko.flash(state.unko.Parts.Middle);
 							state.unko.startScaling(topScaleSpeed, state.unko.Parts.Top);
 						}
 					} else if (this.progress === 2) {
 						if (state.justDown === true) {
 							changeScene(resultScene);
+							state.unko.fixScaleAnim.setData(UnkoNenga.unkoScaleFixAnimation.scaleFinal);
+							state.unko.flashFinal();
 							state.unko.startScaling(0, 0);
 						}
 					}
@@ -3721,7 +3943,11 @@ void main(){
 				},
 				update: function () {
 					if (state.justDown === true) {
-						changeScene(titleScene);
+						if (isHitUi('btm_retry')){
+							changeScene(titleScene);
+						}else if (isHitUi('btm_twitter')){
+							showTweetWindow();
+						}
 					}
 					state.unko.update(state.time, state.deltaTime);
 				},
@@ -3745,6 +3971,7 @@ void main(){
 					addSprite('result_size');
 					addSprite('result_balance');
 					addSprite('btm_retry');
+					addSprite('btm_twitter');
 					var size = this.sizeScore;
 					var balance = this.balanceScore;
 					if (size === 0) {
@@ -3752,7 +3979,7 @@ void main(){
 						if (balance === 0) {
 							addSprite('result_text_syobsyuuun');
 							addSprite('result_balance_ugly');
-						} else if (balance === 1) {
+						} else {
 							addSprite('result_text_syobiun');
 							addSprite('result_balance_beautiful');
 						}
@@ -3761,7 +3988,7 @@ void main(){
 						if (balance === 0) {
 							addSprite('result_text_cyubsyuuun');
 							addSprite('result_balance_ugly');
-						} else if (balance === 1) {
+						} else {
 							addSprite('result_text_cyubiun');
 							addSprite('result_balance_beautiful');
 						}
@@ -3770,7 +3997,6 @@ void main(){
 						if (balance === 2) {
 							addSprite('result_text_cyoubiun');
 							addSprite('result_balance_beautiful');
-							console.log('choubiun');
 						} else if (balance === 1) {
 							addSprite('result_text_daibiun');
 							addSprite('result_balance_beautiful');
@@ -3781,6 +4007,26 @@ void main(){
 					}
 					state.spriteRenderer.draw(state.gpu, camera2dMatrix);
 				}
+			};
+			var isHitUi = function(name){
+				var transform = uiTransforms[name];
+				if (!transform){
+					return false;
+				}
+				var p = toLogicalScreenPosition(state.cursorPos);
+				var min = new Kayac.V2.createXy(-10000, -10000);
+				var max = new Kayac.V2.createXy(10000, 10000);
+				// TODO: min,maxにUI範囲を入れる
+				if ((min.x <= p.x) && (p.x <= max.x) && (min.y <= p.y) && (p.y <= max.y)){
+					return true;
+				}else {
+					return false;
+				}
+			}
+
+			var toLogicalScreenPosition = function(physicalScreenPosition){
+				// TODO:
+				return Kayac.V2.createXy(0, 0);
 			};
 
 			var initializeGpu = function (canvas) {
@@ -3882,7 +4128,8 @@ void main(){
 					plateInterval,
 					plateThickness,
 					scaleMin,
-					scaleMax);
+					scaleMax,
+					topHeightFactor);
 
 				// UI系初期化
 				// Transformをまず辞書化
