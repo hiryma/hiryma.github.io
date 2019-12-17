@@ -49,12 +49,16 @@ uniform vec3 uToWorldNormal0;
 uniform vec3 uToWorldNormal1;
 uniform vec3 uToWorldNormal2;
 uniform vec4 uPolynominal; //0,1,2,3次の順
+uniform float uPolynominal4; //4次の項
 
 void main(){
 	float dirX = cos(aCoord.x);
 	float dirZ = sin(aCoord.x);
 	float y = aCoord.y;
-	float l = uPolynominal.w;
+	float l;
+	l = uPolynominal4;
+	l *= y;
+	l += uPolynominal.w;
 	l *= y;
 	l += uPolynominal.z;
 	l *= y;
@@ -70,7 +74,10 @@ void main(){
 	gl_Position.w = dot(uTransform3, p);
 
 	// 法線生成
-	float dl = 3.0 * uPolynominal.w;
+	float dl;
+	dl = 4.0 * uPolynominal4;
+	dl *= y;
+	dl += 3.0 * uPolynominal.w;
 	dl *= y;
 	dl += 2.0 * uPolynominal.z;
 	dl *= y;
@@ -113,8 +120,8 @@ void main(){
 	vec3 l = uLightVector;
 	vec3 lightColor = vec3(0.4, 0.4, 0.4);
 	vec3 eyePosition = vec3(0.0, 0.0, -10.0);
-	vec3 ambientDown = vec3(0.7, 0.5, 0.6);
-	vec3 ambientUp = vec3(0.6, 0.6, 0.6);
+	vec3 ambientDown = vec3(0.6, 0.4, 0.5);
+	vec3 ambientUp = vec3(0.5, 0.5, 0.5);
 	float f0 = 0.04;
 	float shininess = 256.0;
 
@@ -140,7 +147,7 @@ void main(){
 	gl_FragColor.xyz = diffuse + specular + uEmission;
 	gl_FragColor.w = mix(albedo.w, 1.0, fresnels.y);
 
-//	gl_FragColor.xyz = vec3(en, en, en);
+//	gl_FragColor.xyz = indirectSpecular;
 //	gl_FragColor.w = 1.0;
 }
 </script>
@@ -184,6 +191,16 @@ void main(){
 		Kayac.isPowerOf2 = function (x) {
 			return (x & (x - 1)) === 0;
 		};
+
+		Kayac.normalizeRadian = function(x){
+			var pi2 = Math.PI * 2;
+			var q = Math.floor(x / pi2);
+			x -= q * pi2;
+			if (x >= Math.PI){
+				x -= pi2;
+			}
+			return x;
+		}
 
 		//配列オフセットつきコピー
 		Kayac.copyArray = function (dst, dstOffset, src, srcOffset, count) {
@@ -1697,6 +1714,18 @@ void main(){
 			return ret;
 		};
 
+		Kayac.Q.createRotation = function (axisNormalized, angle) {
+			var ret = new Kayac.Q();
+			var halfAngle = angle * 0.5;
+			var s = Math.sin(halfAngle);
+			var c = Math.cos(halfAngle);
+			ret.w = c;
+			ret.x = s * axisNormalized.x;
+			ret.y = s * axisNormalized.y;
+			ret.z = s * axisNormalized.z;
+			return ret;
+		};
+
 		Kayac.Q.setRotation = function (self, axisNormalized, angle) {
 			var halfAngle = angle * 0.5;
 			var s = Math.sin(halfAngle);
@@ -2358,8 +2387,7 @@ void main(){
 
 		// 連立方程式mx=vを解いて、xを求める。軸選択を行わない。途中で対角に0が現れたら詰む。m、b共に変更され、答えはvに入る。
 		// mはm[(row * N) + column]でアクセスする1次元配列で行列を表現する
-		Kayac.solveLinearSystem = function (m, v) {
-			var n = v.length;
+		Kayac.solveLinearSystem = function (m, v, n) {
 			for (var i = 0; i < n; ++i) {
 				var rcpPivot = 1 / m[(i * n) + i];
 				for (var j = i + 1; j < 4; ++j) {
@@ -2525,7 +2553,9 @@ void main(){
 			gpu.setConstant('uToWorldNormal2', [m.m20, m.m21, m.m22]);
 			gpu.setConstant('uAlbedo', albedo);
 			gpu.setConstant('uEmission', emission);
-			gpu.setConstant('uPolynominal', polynominal)
+			gpu.setConstant('uPolynominal', polynominal);
+			var poly4 = (polynominal.length >= 5) ? polynominal[4] : 0;
+			gpu.setConstant('uPolynominal4', poly4);
 			gpu.setConstant('uLightVector', [lightVector.x, lightVector.y, lightVector.z]);
 
 			gpu.draw(this.mVertexCount, Kayac.Gpu.Primitive.Triangle, 0);
@@ -2599,15 +2629,25 @@ void main(){
 			this.velocity = 0;
 			this.stiffness = 0;
 			this.damping = 0;
+			this.isAngle = false;
 		};
-		Kayac.SpringDamper.prototype.setData = function (data) {
-			this.value = data.start;
-			this.goal = data.goal;
+		Kayac.SpringDamper.prototype.setData = function (data, preserveValue) {
+			if (!preserveValue) {
+				this.value = data.start;
+			}
+			if (data.isAngle){
+				this.isAngle = true;
+			}
 			this.velocity = data.velocity;
+			this.goal = data.goal;
 			this.stiffness = data.stiffness;
 			this.damping = data.damping;
 		};
 		Kayac.SpringDamper.prototype.update = function (dt) {
+			if (this.isAngle){
+				this.value = Kayac.normalizeRadian(this.value);
+				this.goal = Kayac.normalizeRadian(this.goal);
+			}
 			var d = this.goal - this.value;
 			var a = (d * this.stiffness) - (this.velocity * this.damping);
 			this.velocity += a * dt;
@@ -2960,10 +3000,10 @@ void main(){
 		};
 
 		// NumberRenderer
-		Kayac.NumberRenderer = function(sprites, digitCount){
+		Kayac.NumberRenderer = function (sprites, digitCount) {
 			this.mSprites = sprites;
 			this.mInstances = [];
-			for (var i = 0; i < digitCount; ++i){
+			for (var i = 0; i < digitCount; ++i) {
 				this.mInstances[i] = new Kayac.SpriteInstance();
 				var transform = new Kayac.SpriteTransform();
 				transform.position[0] = transform.position[1] = 0;
@@ -2975,21 +3015,21 @@ void main(){
 			this.charWidth = 0;
 			this.value = 0;
 		};
-		Kayac.NumberRenderer.prototype.draw = function(spriteRenderer){
+		Kayac.NumberRenderer.prototype.draw = function (spriteRenderer) {
 			var scale = 1;
-			for (var i = 1; i < this.mInstances.length; ++i){
+			for (var i = 1; i < this.mInstances.length; ++i) {
 				scale *= 10;
 			}
 
 			var v = this.value;
 			var onceRendererd = false;
-			for (var i = 0; i < this.mInstances.length; ++i){
+			for (var i = 0; i < this.mInstances.length; ++i) {
 				var q = v / scale;
 				q = Math.floor(q);
 				v -= q * scale;
 				scale /= 10;
 				scale = Math.round(scale);
-				if (onceRendererd || (q != 0)){
+				if (onceRendererd || (q != 0) || (i == this.mInstances.length - 1)) {
 					onceRendererd = true;
 					var sprite = this.mSprites[q];
 					this.mInstances[i].sprite = sprite;
@@ -3315,9 +3355,9 @@ void main(){
 			"emissionFinal": {
 				start: 1,
 				goal: 0,
-				velocity: -0.5,
-				stiffness: 2,
-				damping: 3
+				velocity: -0.7,
+				stiffness: 4,
+				damping: 5
 			}
 		};
 		// 配置データ
@@ -3625,7 +3665,10 @@ void main(){
 			this.fixScaleAnim = new Kayac.SpringDamper();
 			this.fixScaleAnim.value = 1;
 			this.color = [0, 0, 0];
-
+			this.rotator = new UnkoNenga.Rotator(
+				Kayac.V3.createXyz(1, 0, 0),
+				Kayac.V3.createXyz(0, 1, 0));
+			this.startDefaultRotation(false);
 			this.resetScale();
 		};
 		UnkoNenga.Unko.prototype.Parts = {
@@ -3634,6 +3677,50 @@ void main(){
 			Top: 2,
 			Count: 3,
 		};
+
+		UnkoNenga.Unko.prototype.startResultRotation = function () {
+			this.rotator.setData(
+				{
+					start: 0,
+					goal: -Math.PI / 4,
+					velocity: 0,
+					stiffness: 50,
+					damping: 20,
+					isAngle: true
+				},
+				{
+					start: 0,
+					goal: 0,
+					velocity: 0,
+					stiffness: 50,
+					damping: 20,
+					isAngle: true
+				},
+				true);
+		};
+
+		UnkoNenga.Unko.prototype.startDefaultRotation = function (preserveValue) {
+			console.log('startDefaultRotation');
+			this.rotator.setData(
+				{
+					start: 0,
+					goal: 0,
+					velocity: 0.4,
+					stiffness: 0.3,
+					damping: 0,
+					isAngle: true,
+				},
+				{
+					start: 0,
+					goal: 0,
+					velocity: 0.9,
+					stiffness: 0,
+					damping: 0,
+					isAngle: true
+				},
+				preserveValue);
+		};
+
 		UnkoNenga.Unko.prototype.setColor = function (color) {
 			this.color[0] = color[0];
 			this.color[1] = color[1];
@@ -3643,15 +3730,9 @@ void main(){
 			return this.scales[partsIndex];
 		};
 
-		UnkoNenga.Unko.prototype.update = function (time, deltaTime) {
-			var qx = new Kayac.Q();
-			var rotX = Math.PI * (0.2 + (0.15 * Math.sin(time * 0.0007)));
-			qx.setRotation(Kayac.V3.createXyz(1, 0, 0), rotX);
-			var qy = new Kayac.Q();
-			qy.setRotation(Kayac.V3.createXyz(0, 1, 0), time * 0.001);
-			var q = new Kayac.Q();
-			q.setMul(qy, qx);
-			this.transform.rotation = q;
+		UnkoNenga.Unko.prototype.update = function (deltaTime) {
+			this.rotator.update(deltaTime);
+			this.transform.rotation = this.rotator.rotation;
 
 			this.fixScaleAnim.update(deltaTime);
 			this.transform.scale.x = this.fixScaleAnim.value;
@@ -3697,25 +3778,32 @@ void main(){
 				polynominal[0] = this.scales[i];
 				polynominal[1] = -0.1;
 				polynominal[2] = -this.scaleMin * 0.75;
+				polynominal[4] = -this.scales[i] * 0.2;
 				if (i === 2) {
 					/*
 
 					y = d + cx + bx^2 + ax^3
 					y' = c + 2bx + 3ax^2
 
-					d + tMax*c + tMax^2*b + tMax^3*a = 0 // x=tMaxで値が0
-					c + 2*tMax*b + 3*tMax^2*a = v // x=tMaxでの傾き
-					d + t*c	+ t^2*b + t^3*a = s // x=tでの値
-					c + 2*t*b + 3*t^2*a = 0 // x=tでの傾き
+					4次の項は固定とする
+					d + tMax*c + tMax^2*b + tMax^3*a = 0 - tMax^4*p4 // x=tMaxで値が0
+					c + 2*tMax*b + 3*tMax^2*a = v - 4*tMax^3*p4 // x=tMaxでの傾き
+					d + t*c	+ t^2*b + t^3*a = s - t^4*p4 // x=tでの値
+					c + 2*t*b + 3*t^2*a = 0 - 4*t^3*p4 // x=tでの傾き
 
 					この連立方程式を解く
 					*/
-					var t = -0.5;
+					var t = -0.333;
+					var p4 = -0.05;
+					var vMax = -0.0;
+
 					var tMax = this.topYMax;
 					var tMax2 = tMax * tMax;
 					var tMax3 = tMax2 * tMax;
+					var tMax4 = tMax3 * tMax;
 					var t2 = t * t;
 					var t3 = t2 * t;
+					var t4 = t3 * t;
 					var m = [];
 					m[(0 * 4) + 0] = 1;
 					m[(0 * 4) + 1] = tMax;
@@ -3737,12 +3825,13 @@ void main(){
 					m[(3 * 4) + 2] = 2 * t;
 					m[(3 * 4) + 3] = 3 * t2;
 
-					polynominal[0] = 0;
-					polynominal[1] = -0.1;
-					polynominal[2] = this.scales[2];
-					polynominal[3] = 0;
+					polynominal[0] = 0 - (tMax4 * p4);
+					polynominal[1] = vMax - (4 * tMax3 * p4)
+					polynominal[2] = this.scales[2] - (t4 * p4);
+					polynominal[3] = 0 - (4 * t3 * p4);
 
-					Kayac.solveLinearSystem(m, polynominal);
+					Kayac.solveLinearSystem(m, polynominal, 4);
+					polynominal[4] = p4;
 				}
 				var emissionStrength = this.fixFlashes[i].value;
 				emission[0] = emissionStrength * albedo[0];
@@ -3823,6 +3912,35 @@ void main(){
 			this.scaleSpeed = speed;
 		};
 
+		UnkoNenga.Rotator = function (axis0, axis1) {
+			this.m0 = new Kayac.SpringDamper();
+			this.mAxis0 = Kayac.V3.createV(axis0);
+			this.m1 = new Kayac.SpringDamper();
+			this.mAxis1 = Kayac.V3.createV(axis1);
+			this.rotation = Kayac.Q.createIdentity();
+			this.vector = Kayac.V3.createXyz(0, 0, 0);
+		};
+
+		UnkoNenga.Rotator.baseVector = new Kayac.V3.createXyz(0, 0, -1);
+
+		UnkoNenga.Rotator.prototype.setData = function (data0, data1, preserveValue) {
+			if (data0) {
+				this.m0.setData(data0, preserveValue);
+			}
+			if (data1) {
+				this.m1.setData(data1, preserveValue);
+			}
+		};
+
+		UnkoNenga.Rotator.prototype.update = function (deltaTime) {
+			this.m0.update(deltaTime);
+			this.m1.update(deltaTime);
+			var q0 = Kayac.Q.createRotation(this.mAxis0, this.m0.value);
+			var q1 = Kayac.Q.createRotation(this.mAxis1, this.m1.value);
+			this.rotation.setMul(q1, q0);
+			this.vector.setRotated(this.rotation, UnkoNenga.Rotator.baseVector);
+		};
+
 		(function () {
 			var uiAtlas = UnkoNenga.uiAtlas;
 			// データ検索テーブル生成
@@ -3845,9 +3963,9 @@ void main(){
 			var middleScaleSpeed = 4;
 			var topScaleSpeed = 6;
 			var maxDeltaTime = 0.1;
-			var topHeightFactor = 1.6; // 一番上のを他の段の何倍の高さにするか(ツノを含むので)
+			var topHeightFactor = 1.5; // 一番上のを他の段の何倍の高さにするか(ツノを含むので)
 			var defaultUnkoColor = [1, 0.6, 1];
-			var specialUnkoColor = [1, 1, 0.6];
+			var specialUnkoColor = [1, 1, 0.2];
 
 			//フレームをまたいで保持するデータ
 			var state = {
@@ -3873,7 +3991,7 @@ void main(){
 				bgm: null,
 				audioExt: null,
 				unko: null,
-				lightRotation: null
+				lightRotator: null
 			};
 			var setResolution = function (canvas, requestAspect) {
 				var windowWidth = window.innerWidth;
@@ -3909,12 +4027,12 @@ void main(){
 					state.unko.resetScale();
 					var button = state.spriteInstances['btm_start'];
 					button.setAnimation(uiAnimations['button_loop']);
+					state.unko.startDefaultRotation(false);
 				},
 				update: function () {
 					if (state.justDown === true) {
 						changeScene(gameScene);
 					}
-					state.unko.update(state.time, state.deltaTime);
 				},
 				draw: function () {
 					state.gpu.clear(1, 1, 1, 1); // まずクリア。バグってるかわかるように派手ピンクで塗る
@@ -3923,9 +4041,7 @@ void main(){
 					drawBackground(camera2dMatrix);
 					// ウンコ
 					var camera3dMatrix = state.camera3d.getMatrix();
-					var lightVector = Kayac.V3.createXyz(0, 0, 1);
-					lightVector.rotate(state.lightRotation);
-					state.unko.draw(state.matrixStack, state.gpu, camera3dMatrix, true, true, true, lightVector);
+					state.unko.draw(state.matrixStack, state.gpu, camera3dMatrix, true, true, true, state.lightRotator.vector);
 
 					state.gpu.setBlendEnabled(true); // アルファブレンド
 					state.gpu.setDepthTest(false, false); // Zテストしないし書き込まない
@@ -3942,6 +4058,8 @@ void main(){
 				var instance = state.spriteInstances[name];
 				if (instance) {
 					state.spriteRenderer.add(instance);
+				} else {
+					console.assert(false, 'sprite ' + name + ' not found.');
 				}
 			};
 			var gameScene = {
@@ -3976,7 +4094,6 @@ void main(){
 							state.unko.startScaling(0, 0);
 						}
 					}
-					state.unko.update(state.time, state.deltaTime);
 				},
 				draw: function () {
 					state.gpu.clear(1, 1, 1, 1); // まずクリア。バグってるかわかるように派手ピンクで塗る
@@ -3985,8 +4102,6 @@ void main(){
 					drawBackground(camera2dMatrix);
 					// ウンコ
 					var camera3dMatrix = state.camera3d.getMatrix();
-					var lightVector = Kayac.V3.createXyz(0, 0, 1);
-					lightVector.rotate(state.lightRotation);
 					state.unko.draw(
 						state.matrixStack,
 						state.gpu,
@@ -3994,7 +4109,7 @@ void main(){
 						this.progress < 0,
 						this.progress < 1,
 						this.progress < 2,
-						lightVector);
+						state.lightRotator.vector);
 
 					state.gpu.setBlendEnabled(true); // アルファブレンド
 					state.gpu.setDepthTest(false, false); // Zテストしないし書き込まない
@@ -4034,6 +4149,7 @@ void main(){
 				resultSprite: null,
 				sizeNumberRenderer: null,
 				balanceNumberRenderer: null,
+				time: 0,
 				initialize: function () {
 					// 採点。絶対仕様変わるよね
 					var bottomSize = state.unko.getScaleValue(state.unko.Parts.Bottom);
@@ -4041,20 +4157,33 @@ void main(){
 					var topSize = state.unko.getScaleValue(state.unko.Parts.Top);
 					var sizeSum = bottomSize + middleSize + topSize;
 
+					var revPenalty = 0.5;
 					var size = Math.floor(100 * sizeSum / 6);
-					var bmRatio = bottomSize / middleSize;
-					var mtRatio = middleSize / topSize;
-					var bmScore = bmRatio * (3 / 4);
-					if (bmScore > 1){
-						bmScore = 1 / bmScore;
+					var tm = topSize / middleSize;
+					tm *= (3 / 2);
+					tm = Math.abs(tm);
+					if (tm > 1) {
+						tm = 1 / tm;
 					}
-					var mtScore = mtRatio * (2 / 3);
-					if (mtScore > 1){
-						mtScore = 1 / mtScore;
+					if (topSize > middleSize) {
+						tm *= revPenalty;
 					}
-					var balance = Math.floor(100 * Math.min(bmScore, mtScore));
 
-					if (balance < 80) {
+					var mb = middleSize / bottomSize;
+					var mbPenalty = (mb > 1) ? revPenalty : 1;
+					mb *= (4 / 3);
+					mb = Math.abs(mb);
+					if (mb > 1) {
+						mb = 1 / mb;
+					}
+					if (middleSize > bottomSize) {
+						mb *= revPenalty;
+					}
+
+					var balance = Math.floor(100 * Math.min(tm, mb));
+					balance = Math.max(0, balance);
+
+					if (balance < 60) {
 						this.balanceSprite = state.spriteInstances['result_balance_ugly'];
 					} else {
 						this.balanceSprite = state.spriteInstances['result_balance_beautiful'];
@@ -4067,22 +4196,22 @@ void main(){
 					} else {
 						this.sizeSprite = state.spriteInstances['result_size_large'];
 					}
-					console.log('score size=' + size + ' balance=' + balance + ' bm=' + bmScore + ' mt=' + mtScore);
+					console.log('score size=' + size + ' balance=' + balance + ' mb=' + mb + ' tm=' + tm);
 
 					if (size < 50) {
-						if (balance < 80) {
+						if (balance < 60) {
 							this.resultSprite = state.spriteInstances['result_text_syobsyuuun'];
 						} else {
 							this.resultSprite = state.spriteInstances['result_text_syobiun'];
 						}
 					} else if (size < 100) {
-						if (balance < 80) {
+						if (balance < 60) {
 							this.resultSprite = state.spriteInstances['result_text_cyubsyuuun'];
 						} else {
 							this.resultSprite = state.spriteInstances['result_text_cyubiun'];
 						}
 					} else {
-						if (balance < 80) {
+						if (balance < 60) {
 							this.resultSprite = state.spriteInstances['result_text_daibsyuuun'];
 						} else if (balance < 90) {
 							this.resultSprite = state.spriteInstances['result_text_daibiun'];
@@ -4111,8 +4240,16 @@ void main(){
 					this.balanceNumberRenderer.value = balance;
 					this.balanceNumberRenderer.charWidth = 32;
 					this.balanceNumberRenderer.position = [600, 755];
+
+					state.unko.startResultRotation();
+					this.time = 0;
 				},
 				update: function () {
+					var oldTime = this.time;
+					this.time += state.deltaTime;
+					if ((this.time >= 3) && (oldTime < 3)) {
+						state.unko.startDefaultRotation(true);
+					}
 					if (state.justDown === true) {
 						if (isHitUi('btm_retry')) {
 							changeScene(titleScene);
@@ -4121,7 +4258,6 @@ void main(){
 							showTweetWindow();
 						}
 					}
-					state.unko.update(state.time, state.deltaTime);
 				},
 				draw: function () {
 					state.gpu.clear(1, 1, 1, 1); // まずクリア。バグってるかわかるように派手ピンクで塗る
@@ -4130,9 +4266,13 @@ void main(){
 					drawBackground(camera2dMatrix);
 					// ウンコ
 					var camera3dMatrix = state.camera3d.getMatrix();
-					var lightVector = Kayac.V3.createXyz(0, 0, 1);
-					lightVector.rotate(state.lightRotation);
-					state.unko.draw(state.matrixStack, state.gpu, camera3dMatrix, false, false, false, lightVector);
+					state.unko.draw(
+						state.matrixStack,
+						state.gpu,
+						camera3dMatrix, false,
+						false,
+						false,
+						state.lightRotator.vector);
 
 					state.gpu.setBlendEnabled(true); // アルファブレンド
 					state.gpu.setDepthTest(false, false); // Zテストしないし書き込まない
@@ -4206,7 +4346,10 @@ void main(){
 				var now = Date.now();
 				state.deltaTime = Math.min(maxDeltaTime, (now - state.time) * 0.001);
 				state.time = now;
-				state.lightRotation.integrate(new Kayac.V3.createXyz(0.1, 0.2, 0.3), state.deltaTime);
+				state.lightRotator.update(state.deltaTime);
+				if (state.unko) {
+					state.unko.update(state.deltaTime);
+				}
 				// Update
 				if (state.scene !== null) {
 					if (typeof state.scene.update !== 'undefined') {
@@ -4234,7 +4377,25 @@ void main(){
 				state.camera2d.setProjection(logicalWidth, logicalHeight);
 				state.camera2d.position = [logicalWidth / 2, logicalHeight / 2];
 
-				state.lightRotation = Kayac.Q.createIdentity();
+				state.lightRotator = new UnkoNenga.Rotator(
+					Kayac.V3.createXyz(1, 0, 0),
+					Kayac.V3.createXyz(0, 0, 1));
+				state.lightRotator.setData(
+					{
+						start: 0,
+						goal: 0,
+						velocity: 0.3,
+						stiffness: 0.2,
+						damping: 0
+					},
+					{
+						start: 0,
+						goal: 0,
+						velocity: 0.6,
+						stiffness: 0,
+						damping: 0
+					},
+					false);
 			};
 			var startLoad = function () {
 				state.loadingTextureCount = 2;
