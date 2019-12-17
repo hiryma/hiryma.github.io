@@ -28,7 +28,7 @@
 	<div class="center">
 		<canvas id="screen"></canvas>
 	</div>
-	<a href="" id="tweet" "target=" _blank">ツイート実験</a>
+	<input type="button" id="saveButton" value="スクショ保存テスト" />
 
 	<script id="3dvs" type="x-shader/x-vertex">
 precision mediump float;
@@ -97,6 +97,7 @@ precision mediump float;
 uniform sampler2D uSampler;
 uniform vec4 uAlbedo;
 uniform vec3 uEmission;
+uniform vec3 uLightVector;
 
 varying vec3 vNormal; // world
 varying vec3 vPosition; // world
@@ -108,9 +109,8 @@ vec2 fresnel2(float f0, vec2 eh_en){
 }
 
 void main(){
-//gl_FragColor = vec4(vNormal * 0.5 + 0.5, 1); return;
 	float pi = 3.14159;
-	vec3 l = vec3(0.5773, 0.5773, -0.5773);
+	vec3 l = uLightVector;
 	vec3 lightColor = vec3(0.4, 0.4, 0.4);
 	vec3 eyePosition = vec3(0.0, 0.0, -10.0);
 	vec3 ambientDown = vec3(0.7, 0.5, 0.6);
@@ -136,10 +136,12 @@ void main(){
 	vec3 directSpecular = lightColor * (fresnels.x * pow(nh, shininess) * (shininess + 2.0) / (2.0 * pi));
 	vec3 indirectSpecular = mix(ambientDown, ambientUp, (ry * 0.5) + 0.5) * fresnels.y;
 	vec3 specular = directSpecular + indirectSpecular;
-	specular /= (albedo.w == 0.0) ? 1.0 : albedo.w;
 
 	gl_FragColor.xyz = diffuse + specular + uEmission;
-	gl_FragColor.w = albedo.w;
+	gl_FragColor.w = mix(albedo.w, 1.0, fresnels.y);
+
+//	gl_FragColor.xyz = vec3(en, en, en);
+//	gl_FragColor.w = 1.0;
 }
 </script>
 
@@ -280,7 +282,12 @@ void main(){
 			if ((typeof canvas) === 'string') { //文字列なら引くよ
 				canvas = document.getElementById(canvas);
 			}
-			var attributes = { antialias: true, depth: true, alpha: false };
+			var attributes = {
+				antialias: true,
+				depth: true,
+				preserveDrawingBuffer: true,  // TODO: 最終的に画像保存しないなら消せ
+				alpha: false
+			};
 			var gl = canvas.getContext('webgl', attributes) || canvas.getContext('experimental-webgl'); //後ろはIE用
 			this.mGl = gl;
 			//デフォルトテクスチャ生成
@@ -404,6 +411,7 @@ void main(){
 			cb *= ca;
 			gl.clearColor(cr, cg, cb, ca);
 			gl.clearDepth(1);
+			this.setDepthTest(true, true); // maskがfalseだとclearも動かなくなる
 			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 			//クリアなんて頻繁にやらないだろうから、このタイミングでエラーチェックとコマンドのフラッシュを行う
 			gl.flush();
@@ -1066,7 +1074,7 @@ void main(){
 			var V = Kayac.V2;
 			var l = V.magnitude(a);
 			if (l !== 0) {
-				V.initToMul(self, a, 1 / l);
+				V.setMul(self, a, 1 / l);
 			}
 		};
 
@@ -1419,18 +1427,18 @@ void main(){
 			var V = Kayac.V3;
 			var l = V.magnitude(a);
 			if (l !== 0) {
-				V.initToMul(self, a, 1 / l);
+				V.setMul(self, a, 1 / l);
 			}
 		};
 
 		Kayac.V3.rotate = function (self, q) {
-			var qv = new Kayac.Q(q);
+			var qv = Kayac.Q.createQ(q);
 			Kayac.Q.mulV(qv, self);
 			Kayac.V3.setMulQCq(self, qv, q);
 		};
 
 		Kayac.V3.rotateRev = function (self, q) {
-			var cqv = new Kayac.Q(q);
+			var cqv = Kayac.Q.createQ(q);
 			cqv.x = -cqv.x;
 			cqv.y = -cqv.y;
 			cqv.z = -cqv.z;
@@ -1439,13 +1447,13 @@ void main(){
 		};
 
 		Kayac.V3.setRotated = function (self, q, v) {
-			var qv = new Kayac.Q(q);
+			var qv = Kayac.Q.createQ(q);
 			Kayac.Q.mulV(qv, v);
 			Kayac.V3.setMulQCq(self, qv, q);
 		};
 
 		Kayac.V3.setRotatedRev = function (self, q, v) {
-			var cqv = new Kayac.Q(q);
+			var cqv = Kayac.Q.createQ(q);
 			cqv.x = -cqv.x;
 			cqv.y = -cqv.y;
 			cqv.z = -cqv.z;
@@ -1464,7 +1472,7 @@ void main(){
 			V.setMaddS(self, normalizedNormal, -2 * vn, self);
 		};
 
-		Kayac.V3.initToReflected = function (self, v, normalizedNormal) {
+		Kayac.V3.setReflected = function (self, v, normalizedNormal) {
 			var V = Kayac.V3;
 			var vn = V.dot(v, normalizedNormal);
 			V.setMaddS(self, v, normalizedNormal, -2 * vn, self);
@@ -1768,7 +1776,7 @@ void main(){
 				q1.y = crossY.y * rcpHLength;
 				q1.z = crossY.z * rcpHLength;
 			}
-			Q.initToMul(self, q1, q0);
+			Q.setMul(self, q1, q0);
 		};
 
 		Kayac.Q.add = function (self, a) {
@@ -1818,15 +1826,15 @@ void main(){
 		};
 
 		Kayac.Q.mul = function (self, a) {
-			Kayac.Q.initToMul(self, self, a);
+			Kayac.Q.setMul(self, self, a);
 		};
 
 		Kayac.Q.mulV = function (self, a) {
-			Kayac.Q.initToMulQV(self, self, a);
+			Kayac.Q.setMulQV(self, self, a);
 		};
 
 		Kayac.Q.mulVQ = function (self, a) {
-			Kayac.Q.initToMulVQ(self, self, a);
+			Kayac.Q.setMulVQ(self, self, a);
 		};
 
 		Kayac.Q.sqNorm = function (self) {
@@ -2492,7 +2500,8 @@ void main(){
 			wMatrixInvTransposed,
 			albedo,
 			emission,
-			polynominal) {
+			polynominal,
+			lightVector) {
 
 			gpu.setVertexBuffer(this.mVertexBuffer);
 			gpu.setIndexBuffer(this.mIndexBuffer);
@@ -2517,7 +2526,8 @@ void main(){
 			gpu.setConstant('uAlbedo', albedo);
 			gpu.setConstant('uEmission', emission);
 			gpu.setConstant('uPolynominal', polynominal)
-			// TODO: ライトパラメタ
+			gpu.setConstant('uLightVector', [lightVector.x, lightVector.y, lightVector.z]);
+
 			gpu.draw(this.mVertexCount, Kayac.Gpu.Primitive.Triangle, 0);
 		};
 
@@ -2724,6 +2734,36 @@ void main(){
 				this.animator.apply(this.transform);
 			}
 		};
+		Kayac.SpriteInstance.prototype.isHit = function (p, parentWidth, parentHeight) {
+			var topLeft = Kayac.V2.createXy(0, 0);
+			this.getTopLeft(topLeft, parentWidth, parentHeight);
+
+			var minX = topLeft.x;
+			if (p.x < minX) {
+				return false;
+			}
+			var minY = topLeft.y;
+			if (p.y < minY) {
+				return false;
+			}
+			var maxX = minX + (this.sprite.size[0] * this.transform.scale[0]);
+			if (p.x > maxX) {
+				return false;
+			}
+			var maxY = minY + (this.sprite.size[1] * this.transform.scale[1]);
+			if (p.y > maxY) {
+				return false;
+			}
+			return true;
+		};
+		Kayac.SpriteInstance.prototype.getTopLeft = function (topLeftOut, parentWidth, parentHeight) {
+			Kayac.SpriteTransform.getTopLeft(
+				topLeftOut,
+				this.transform,
+				this.sprite.size,
+				parentWidth,
+				parentHeight);
+		};
 		// SpriteRenderer
 		Kayac.SpriteRenderer = function (
 			gpu,
@@ -2770,10 +2810,10 @@ void main(){
 			var floatStride = this.mVertexFormat.stride / 4;
 			var buffer = new Float32Array(this.mInstances.length * 4 * floatStride);
 			var offset = 0;
-			var tmpOrigin = Kayac.V2.createXy(0, 0);
+			var tmpTopLeft = Kayac.V2.createXy(0, 0);
 			for (var i = 0; i < this.mInstances.length; i++) {
 				var instance = this.mInstances[i];
-				offset = this.fillVertices(buffer, instance, offset, tmpOrigin);
+				offset = this.fillVertices(buffer, instance, offset, tmpTopLeft);
 			}
 			this.mVertexBuffer.update(buffer.buffer);
 
@@ -2789,7 +2829,7 @@ void main(){
 				gpu.draw(6, Kayac.Gpu.Primitive.Triangle, i * 6);
 			}
 		};
-		Kayac.SpriteRenderer.prototype.fillVertices = function (buffer, instance, offset, tmpOrigin) {
+		Kayac.SpriteRenderer.prototype.fillVertices = function (buffer, instance, offset, tmpTopLeft) {
 			var floatStride = this.mVertexFormat.stride / 4;
 			var sprite = instance.sprite;
 			var transform = instance.transform;
@@ -2804,49 +2844,38 @@ void main(){
 			}
 
 			console.assert(sprite && transform);
-			this.getOrigin(tmpOrigin, sprite, transform);
+			instance.getTopLeft(tmpTopLeft, this.parentWidth, this.parentHeight);
 			var u = sprite.texcoordOffset[0] + transform.texcoordOffset[0];
 			var v = sprite.texcoordOffset[1] + transform.texcoordOffset[1];
 			// 左下
-			buffer[offset + 0] = tmpOrigin.x;
-			buffer[offset + 1] = tmpOrigin.y + sprite.size[1] * transform.scale[0];
+			buffer[offset + 0] = tmpTopLeft.x;
+			buffer[offset + 1] = tmpTopLeft.y + (sprite.size[1] * transform.scale[1]);
 			buffer[offset + 2] = u;
 			buffer[offset + 3] = v + sprite.texcoordSize[1];
 			offset += floatStride;
 
 			// 左上
-			buffer[offset + 0] = tmpOrigin.x;
-			buffer[offset + 1] = tmpOrigin.y;
+			buffer[offset + 0] = tmpTopLeft.x;
+			buffer[offset + 1] = tmpTopLeft.y;
 			buffer[offset + 2] = u;
 			buffer[offset + 3] = v;
 			offset += floatStride;
 
 			// 右上
-			buffer[offset + 0] = tmpOrigin.x + sprite.size[0] * transform.scale[0];
-			buffer[offset + 1] = tmpOrigin.y;
+			buffer[offset + 0] = tmpTopLeft.x + (sprite.size[0] * transform.scale[0]);
+			buffer[offset + 1] = tmpTopLeft.y;
 			buffer[offset + 2] = u + sprite.texcoordSize[0];
 			buffer[offset + 3] = v;
 			offset += floatStride;
 
 			// 右下
-			buffer[offset + 0] = tmpOrigin.x + sprite.size[0] * transform.scale[0];
-			buffer[offset + 1] = tmpOrigin.y + sprite.size[1] * transform.scale[0];
+			buffer[offset + 0] = tmpTopLeft.x + (sprite.size[0] * transform.scale[0]);
+			buffer[offset + 1] = tmpTopLeft.y + (sprite.size[1] * transform.scale[1]);
 			buffer[offset + 2] = u + sprite.texcoordSize[0];
 			buffer[offset + 3] = v + sprite.texcoordSize[1];
 			offset += floatStride;
 
 			return offset;
-		};
-		Kayac.SpriteRenderer.prototype.getOrigin = function (originOut, sprite, transform) {
-			// 親の中の座標原点
-			originOut.x = this.parentWidth * transform.anchor[0];
-			originOut.y = this.parentHeight * transform.anchor[1];
-			// 自分のピボットを見てズラす
-			originOut.x -= sprite.size[0] * transform.pivot[0] * transform.scale[0];
-			originOut.y -= sprite.size[1] * transform.pivot[1] * transform.scale[0];
-			// 位置を加算
-			originOut.x += transform.position[0];
-			originOut.y += transform.position[1];
 		};
 
 		// 3DのTransform
@@ -2875,6 +2904,17 @@ void main(){
 			this.position = [0, 0];
 			this.texcoordOffset = [0, 0];
 			this.opacity = 1;
+		};
+		Kayac.SpriteTransform.getTopLeft = function (topLeftOut, transform, spriteSize, parentWidth, parentHeight) {
+			// 親の中の座標原点
+			topLeftOut.x = parentWidth * transform.anchor[0];
+			topLeftOut.y = parentHeight * transform.anchor[1];
+			// 自分のピボットを見てズラす
+			topLeftOut.x -= spriteSize[0] * transform.pivot[0] * transform.scale[0];
+			topLeftOut.y -= spriteSize[1] * transform.pivot[1] * transform.scale[1];
+			// 位置を加算
+			topLeftOut.x += transform.position[0];
+			topLeftOut.y += transform.position[1];
 		};
 		Kayac.SpriteTransform.prototype.set = function (a) {
 			this.name = a.name;
@@ -2917,6 +2957,48 @@ void main(){
 		};
 		Kayac.MatrixStack.prototype.top = function () {
 			return this.mStack[this.mTop];
+		};
+
+		// NumberRenderer
+		Kayac.NumberRenderer = function(sprites, digitCount){
+			this.mSprites = sprites;
+			this.mInstances = [];
+			for (var i = 0; i < digitCount; ++i){
+				this.mInstances[i] = new Kayac.SpriteInstance();
+				var transform = new Kayac.SpriteTransform();
+				transform.position[0] = transform.position[1] = 0;
+				transform.pivot[0] = transform.pivot[1] = 0;
+				transform.anchor[0] = transform.anchor[1] = 0;
+				this.mInstances[i].transform = transform;
+			}
+			this.position = [0, 0];
+			this.charWidth = 0;
+			this.value = 0;
+		};
+		Kayac.NumberRenderer.prototype.draw = function(spriteRenderer){
+			var scale = 1;
+			for (var i = 1; i < this.mInstances.length; ++i){
+				scale *= 10;
+			}
+
+			var v = this.value;
+			var onceRendererd = false;
+			for (var i = 0; i < this.mInstances.length; ++i){
+				var q = v / scale;
+				q = Math.floor(q);
+				v -= q * scale;
+				scale /= 10;
+				scale = Math.round(scale);
+				if (onceRendererd || (q != 0)){
+					onceRendererd = true;
+					var sprite = this.mSprites[q];
+					this.mInstances[i].sprite = sprite;
+					var transform = this.mInstances[i].transform;
+					transform.position[0] = this.position[0] + (this.charWidth * i);
+					transform.position[1] = this.position[1];
+					spriteRenderer.add(this.mInstances[i]);
+				}
+			}
 		};
 	</script>
 
@@ -3450,7 +3532,7 @@ void main(){
 			{
 				"name": "result_balance",
 				"pivot": [1, 0.5],
-				"anchor": [1, 0.61],
+				"anchor": [0.85, 0.61],
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
@@ -3495,7 +3577,7 @@ void main(){
 			{
 				"name": "result_size",
 				"pivot": [1, 0.5],
-				"anchor": [1, 0.52],
+				"anchor": [0.85, 0.52],
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
@@ -3542,6 +3624,7 @@ void main(){
 			this.scaleIndex = -1;
 			this.fixScaleAnim = new Kayac.SpringDamper();
 			this.fixScaleAnim.value = 1;
+			this.color = [0, 0, 0];
 
 			this.resetScale();
 		};
@@ -3551,6 +3634,11 @@ void main(){
 			Top: 2,
 			Count: 3,
 		};
+		UnkoNenga.Unko.prototype.setColor = function (color) {
+			this.color[0] = color[0];
+			this.color[1] = color[1];
+			this.color[2] = color[2];
+		}
 		UnkoNenga.Unko.prototype.getScaleValue = function (partsIndex) {
 			return this.scales[partsIndex];
 		};
@@ -3592,7 +3680,8 @@ void main(){
 			cameraMatrix,
 			bottomTransparent,
 			middleTransparent,
-			topTransparent) {
+			topTransparent,
+			lightVector) {
 
 			var pvwm = new Kayac.M44();
 			var m = this.transform.getMatrix();
@@ -3668,7 +3757,8 @@ void main(){
 					cameraMatrix,
 					albedo,
 					emission,
-					polynominal);
+					polynominal,
+					lightVector);
 			}
 			matrixStack.pop();
 		};
@@ -3697,13 +3787,13 @@ void main(){
 				albedoOut[0] = 0.5;
 				albedoOut[1] = 0.5;
 				albedoOut[2] = 0.5;
-				albedoOut[3] = 0.5;
+				albedoOut[3] = 0.1;
 			} else {
 				gpu.setBlendEnabled(false);
 				gpu.setDepthTest(true, true);
-				albedoOut[0] = 1;
-				albedoOut[1] = 0.6;
-				albedoOut[2] = 1;
+				albedoOut[0] = this.color[0];
+				albedoOut[1] = this.color[1];
+				albedoOut[2] = this.color[2];
 				albedoOut[3] = 1;
 			}
 		};
@@ -3716,7 +3806,8 @@ void main(){
 			pvm,
 			albedo,
 			emission,
-			polynominal) {
+			polynominal,
+			lightVector) {
 
 			var m = transform.getMatrix();
 			matrixStack.pushMul(m);
@@ -3724,7 +3815,7 @@ void main(){
 			pvwm.setMul44x34(pvm, wm);
 			var nm = new Kayac.M33(); // 法線変換行列
 			nm.setInvTranspose34(wm);
-			mesh.draw(gpu, pvwm, wm, nm, albedo, emission, polynominal);
+			mesh.draw(gpu, pvwm, wm, nm, albedo, emission, polynominal, lightVector);
 			matrixStack.pop();
 		};
 		UnkoNenga.Unko.prototype.startScaling = function (speed, index) {
@@ -3755,6 +3846,8 @@ void main(){
 			var topScaleSpeed = 6;
 			var maxDeltaTime = 0.1;
 			var topHeightFactor = 1.6; // 一番上のを他の段の何倍の高さにするか(ツノを含むので)
+			var defaultUnkoColor = [1, 0.6, 1];
+			var specialUnkoColor = [1, 1, 0.6];
 
 			//フレームをまたいで保持するデータ
 			var state = {
@@ -3779,7 +3872,8 @@ void main(){
 				scene: null,
 				bgm: null,
 				audioExt: null,
-				unko: null
+				unko: null,
+				lightRotation: null
 			};
 			var setResolution = function (canvas, requestAspect) {
 				var windowWidth = window.innerWidth;
@@ -3829,7 +3923,9 @@ void main(){
 					drawBackground(camera2dMatrix);
 					// ウンコ
 					var camera3dMatrix = state.camera3d.getMatrix();
-					state.unko.draw(state.matrixStack, state.gpu, camera3dMatrix, true, true, true);
+					var lightVector = Kayac.V3.createXyz(0, 0, 1);
+					lightVector.rotate(state.lightRotation);
+					state.unko.draw(state.matrixStack, state.gpu, camera3dMatrix, true, true, true, lightVector);
 
 					state.gpu.setBlendEnabled(true); // アルファブレンド
 					state.gpu.setDepthTest(false, false); // Zテストしないし書き込まない
@@ -3889,13 +3985,16 @@ void main(){
 					drawBackground(camera2dMatrix);
 					// ウンコ
 					var camera3dMatrix = state.camera3d.getMatrix();
+					var lightVector = Kayac.V3.createXyz(0, 0, 1);
+					lightVector.rotate(state.lightRotation);
 					state.unko.draw(
 						state.matrixStack,
 						state.gpu,
 						camera3dMatrix,
 						this.progress < 0,
 						this.progress < 1,
-						this.progress < 2);
+						this.progress < 2,
+						lightVector);
 
 					state.gpu.setBlendEnabled(true); // アルファブレンド
 					state.gpu.setDepthTest(false, false); // Zテストしないし書き込まない
@@ -3919,39 +4018,105 @@ void main(){
 			var isNearlyEqual = function (v, ref, range) {
 				return isInRange(v, ref - range, ref + range);
 			};
+			var showTweetWindow = function () {
+				var tweetUrl = 'https://twitter.com/intent/tweet?text=';
+				tweetUrl += encodeURIComponent('プログラム試験投稿してみた。消す。');
+				tweetUrl += '&hashtags=hoge';
+				var ret = window.open(
+					tweetUrl,
+					"(仮)ツイート実験中!!!");
+				console.log('window.open ' + ret);
+			};
 			var resultScene = {
 				name: 'result',
-				sizeScore: 0,
-				balanceScore: 0,
+				sizeSprite: null,
+				balanceSprite: null,
+				resultSprite: null,
+				sizeNumberRenderer: null,
+				balanceNumberRenderer: null,
 				initialize: function () {
 					// 採点。絶対仕様変わるよね
 					var bottomSize = state.unko.getScaleValue(state.unko.Parts.Bottom);
 					var middleSize = state.unko.getScaleValue(state.unko.Parts.Middle);
 					var topSize = state.unko.getScaleValue(state.unko.Parts.Top);
 					var sizeSum = bottomSize + middleSize + topSize;
-					if (sizeSum >= 6) {
-						this.sizeScore = 2;
-					} else if (sizeSum >= 3) {
-						this.sizeScore = 1;
-					} else {
-						this.sizeScore = 0;
+
+					var size = Math.floor(100 * sizeSum / 6);
+					var bmRatio = bottomSize / middleSize;
+					var mtRatio = middleSize / topSize;
+					var bmScore = bmRatio * (3 / 4);
+					if (bmScore > 1){
+						bmScore = 1 / bmScore;
 					}
-					if ((bottomSize > middleSize) && (middleSize > topSize)) {
-						var bmRatio = bottomSize / middleSize;
-						var mtRatio = middleSize / topSize;
-						if (isNearlyEqual(bmRatio, 2 / 1.5, 0.2) && isNearlyEqual(mtRatio, 1.5 / 1, 0.2)) {
-							this.balanceScore = 2;
+					var mtScore = mtRatio * (2 / 3);
+					if (mtScore > 1){
+						mtScore = 1 / mtScore;
+					}
+					var balance = Math.floor(100 * Math.min(bmScore, mtScore));
+
+					if (balance < 80) {
+						this.balanceSprite = state.spriteInstances['result_balance_ugly'];
+					} else {
+						this.balanceSprite = state.spriteInstances['result_balance_beautiful'];
+					}
+
+					if (size < 50) {
+						this.sizeSprite = state.spriteInstances['result_size_small'];
+					} else if (size < 100) {
+						this.sizeSprite = state.spriteInstances['result_size_medium'];
+					} else {
+						this.sizeSprite = state.spriteInstances['result_size_large'];
+					}
+					console.log('score size=' + size + ' balance=' + balance + ' bm=' + bmScore + ' mt=' + mtScore);
+
+					if (size < 50) {
+						if (balance < 80) {
+							this.resultSprite = state.spriteInstances['result_text_syobsyuuun'];
 						} else {
-							this.balanceScore = 1;
+							this.resultSprite = state.spriteInstances['result_text_syobiun'];
+						}
+					} else if (size < 100) {
+						if (balance < 80) {
+							this.resultSprite = state.spriteInstances['result_text_cyubsyuuun'];
+						} else {
+							this.resultSprite = state.spriteInstances['result_text_cyubiun'];
 						}
 					} else {
-						this.balanceScore = 0;
+						if (balance < 80) {
+							this.resultSprite = state.spriteInstances['result_text_daibsyuuun'];
+						} else if (balance < 90) {
+							this.resultSprite = state.spriteInstances['result_text_daibiun'];
+						} else {
+							this.resultSprite = state.spriteInstances['result_text_cyoubiun'];
+							state.unko.setColor(specialUnkoColor);
+						}
 					}
+					var digitSprites = [
+						state.spriteInstances['num_0'].sprite,
+						state.spriteInstances['num_1'].sprite,
+						state.spriteInstances['num_2'].sprite,
+						state.spriteInstances['num_3'].sprite,
+						state.spriteInstances['num_4'].sprite,
+						state.spriteInstances['num_5'].sprite,
+						state.spriteInstances['num_6'].sprite,
+						state.spriteInstances['num_7'].sprite,
+						state.spriteInstances['num_8'].sprite,
+						state.spriteInstances['num_9'].sprite,
+					];
+					this.sizeNumberRenderer = new Kayac.NumberRenderer(digitSprites, 3);
+					this.sizeNumberRenderer.value = size;
+					this.sizeNumberRenderer.charWidth = 32;
+					this.sizeNumberRenderer.position = [600, 640];
+					this.balanceNumberRenderer = new Kayac.NumberRenderer(digitSprites, 3);
+					this.balanceNumberRenderer.value = balance;
+					this.balanceNumberRenderer.charWidth = 32;
+					this.balanceNumberRenderer.position = [600, 755];
 				},
 				update: function () {
 					if (state.justDown === true) {
 						if (isHitUi('btm_retry')) {
 							changeScene(titleScene);
+							state.unko.setColor(defaultUnkoColor);
 						} else if (isHitUi('btm_twitter')) {
 							showTweetWindow();
 						}
@@ -3965,7 +4130,9 @@ void main(){
 					drawBackground(camera2dMatrix);
 					// ウンコ
 					var camera3dMatrix = state.camera3d.getMatrix();
-					state.unko.draw(state.matrixStack, state.gpu, camera3dMatrix, false, false, false);
+					var lightVector = Kayac.V3.createXyz(0, 0, 1);
+					lightVector.rotate(state.lightRotation);
+					state.unko.draw(state.matrixStack, state.gpu, camera3dMatrix, false, false, false, lightVector);
 
 					state.gpu.setBlendEnabled(true); // アルファブレンド
 					state.gpu.setDepthTest(false, false); // Zテストしないし書き込まない
@@ -3980,61 +4147,31 @@ void main(){
 					addSprite('btm_retry');
 					addSprite('btm_twitter');
 					addSprite('result');
-					var size = this.sizeScore;
-					var balance = this.balanceScore;
-					if (size === 0) {
-						addSprite('result_size_small');
-						if (balance === 0) {
-							addSprite('result_text_syobsyuuun');
-							addSprite('result_balance_ugly');
-						} else {
-							addSprite('result_text_syobiun');
-							addSprite('result_balance_beautiful');
-						}
-					} else if (size === 1) {
-						addSprite('result_size_medium');
-						if (balance === 0) {
-							addSprite('result_text_cyubsyuuun');
-							addSprite('result_balance_ugly');
-						} else {
-							addSprite('result_text_cyubiun');
-							addSprite('result_balance_beautiful');
-						}
-					} else {
-						addSprite('result_size_large');
-						if (balance === 2) {
-							addSprite('result_text_cyoubiun');
-							addSprite('result_balance_beautiful');
-						} else if (balance === 1) {
-							addSprite('result_text_daibiun');
-							addSprite('result_balance_beautiful');
-						} else {
-							addSprite('result_text_daibsyuuun');
-							addSprite('result_balance_ugly');
-						}
-					}
+					state.spriteRenderer.add(this.sizeSprite);
+					state.spriteRenderer.add(this.balanceSprite);
+					state.spriteRenderer.add(this.resultSprite);
+
+					this.sizeNumberRenderer.draw(state.spriteRenderer);
+					this.balanceNumberRenderer.draw(state.spriteRenderer);
 					state.spriteRenderer.draw(state.gpu, camera2dMatrix);
 				}
 			};
 			var isHitUi = function (name) {
-				var transform = uiTransforms[name];
-				if (!transform) {
+				var instance = state.spriteInstances[name];
+				if (!instance) {
 					return false;
 				}
 				var p = toLogicalScreenPosition(state.cursorPos);
-				var min = new Kayac.V2.createXy(-10000, -10000);
-				var max = new Kayac.V2.createXy(10000, 10000);
-				// TODO: min,maxにUI範囲を入れる
-				if ((min.x <= p.x) && (p.x <= max.x) && (min.y <= p.y) && (p.y <= max.y)) {
-					return true;
-				} else {
-					return false;
-				}
-			}
+				return instance.isHit(p, logicalWidth, logicalHeight);
+			};
 
 			var toLogicalScreenPosition = function (physicalScreenPosition) {
-				// TODO:
-				return Kayac.V2.createXy(0, 0);
+				var canvasRect = canvas.getBoundingClientRect();
+				var canvasX = physicalScreenPosition.x - canvasRect.left;
+				var canvasY = physicalScreenPosition.y - canvasRect.top;
+				var x = canvasX * logicalWidth / canvas.width;
+				var y = canvasY * logicalHeight / canvas.height;
+				return Kayac.V2.createXy(x, y);
 			};
 
 			var initializeGpu = function (canvas) {
@@ -4069,6 +4206,7 @@ void main(){
 				var now = Date.now();
 				state.deltaTime = Math.min(maxDeltaTime, (now - state.time) * 0.001);
 				state.time = now;
+				state.lightRotation.integrate(new Kayac.V3.createXyz(0.1, 0.2, 0.3), state.deltaTime);
 				// Update
 				if (state.scene !== null) {
 					if (typeof state.scene.update !== 'undefined') {
@@ -4095,6 +4233,8 @@ void main(){
 				state.camera2d = new Kayac.Camera2d();
 				state.camera2d.setProjection(logicalWidth, logicalHeight);
 				state.camera2d.position = [logicalWidth / 2, logicalHeight / 2];
+
+				state.lightRotation = Kayac.Q.createIdentity();
 			};
 			var startLoad = function () {
 				state.loadingTextureCount = 2;
@@ -4138,6 +4278,7 @@ void main(){
 					scaleMin,
 					scaleMax,
 					topHeightFactor);
+				state.unko.setColor(defaultUnkoColor);
 
 				// UI系初期化
 				// Transformをまず辞書化
@@ -4293,12 +4434,20 @@ void main(){
 			startLoad();
 			mainLoop();
 
-			// ツイート実験
-			var tweet = document.getElementById('tweet');
-			var tweetUrl = 'https://twitter.com/intent/tweet?text=';
-			tweetUrl += encodeURIComponent('プログラム試験投稿してみた。消す。');
-			tweetUrl += '&hashtags=hoge';
-			tweet.href = tweetUrl;
+			// テスト用画面写真保存
+			var saveButton = document.getElementById('saveButton');
+			var onClickSaveButton = function () {
+				var dataUrl = canvas.toDataURL();
+				if (dataUrl) {
+					var anchor = document.createElement('a');
+					anchor.download = 'kayacOnenga2019.png';
+					anchor.href = dataUrl;
+					anchor.click();
+				}
+			};
+			if (saveButton) {
+				saveButton.addEventListener('click', onClickSaveButton, false);
+			}
 		}());
 	</script>
 </body>
