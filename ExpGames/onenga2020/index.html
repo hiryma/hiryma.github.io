@@ -3998,6 +3998,12 @@ void main(){
 				frameTime: 0,
 			};
 			var setResolution = function (canvas, requestAspect) {
+				alert(
+					screen.width + 'x' + screen.height + '\n' +
+					window.innerWidth + 'x' + window.innerHeight + '\n' +
+					window.devicePixelRatio + '\n' +
+					document.documentElement.clientWidth + 'x' + document.documentElement.clientHeight);
+
 				var windowWidth = window.innerWidth;
 				var windowHeight = window.innerHeight;
 				console.log('window: ' + windowWidth + 'x' + windowHeight);
@@ -4033,7 +4039,6 @@ void main(){
 				console.log('logical: ' + logicalWidth + 'x' + logicalHeight);
 				console.log('show: ' + showWidth + 'x' + showHeight);
 				console.log('canvas: ' + canvas.width + 'x' + canvas.height);
-				alert(window.innerWidth + 'x' + window.innerHeight + ' ' + pixelRatio + ' ' + showWidth + 'x' + showHeight + ' ' + canvasWidth + 'x' + canvasHeight + ' ' + maxWidth + 'x' + maxHeight + ' ' + document.documentElement.clientWidth + 'x' + document.documentElement.clientHeight);
 			};
 			var loadingScene = {
 				name: 'loading',
