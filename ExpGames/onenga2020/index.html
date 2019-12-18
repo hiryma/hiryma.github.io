@@ -3998,6 +3998,7 @@ void main(){
 				frameTime: 0,
 			};
 			var setResolution = function (canvas, requestAspect) {
+				var occupyRatio = 0.9;
 				// レイアウト座標系なので、実解像度とは全く関係ないことがある(幅980とか)
 				var windowW = window.innerWidth;
 				var windowH = window.innerHeight;
@@ -4009,8 +4010,8 @@ void main(){
 					windowW = Math.floor(windowH * requestAspect);
 				}
 				// その9割でcanvasをレイアウト
-				var elementW = windowW * 0.9;
-				var elementH = windowH * 0.9;
+				var elementW = windowW * occupyRatio;
+				var elementH = windowH * occupyRatio;
 
 				// 実canvas解像度の初期値は、レイアウト座標サイズにピクセル係数を乗じたもの
 				var pixelRatio = window.devicePixelRatio || 1;
@@ -4018,8 +4019,8 @@ void main(){
 				var pxH = elementH * pixelRatio;
 
 				// 最大ピクセル数は画面解像度と論理解像度で制約
-				var maxPxW = Math.min(logicalWidth, screen.width * pixelRatio);
-				var maxPxH = Math.min(logicalHeight, screen.height * pixelRatio);
+				var maxPxW = Math.min(logicalWidth, screen.width * pixelRatio * occupyRatio);
+				var maxPxH = Math.min(logicalHeight, screen.height * pixelRatio * occupyRatio);
 
 				// capをかける
 				if (pxW > maxPxW){
