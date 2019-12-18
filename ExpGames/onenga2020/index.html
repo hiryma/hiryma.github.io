@@ -112,14 +112,13 @@ varying vec3 vNormal; // world
 varying vec3 vPosition; // world
 
 vec2 fresnel2(float f0, vec2 eh_en){
-	vec2 t = vec2(1.0, 1.0) - eh_en;
+	vec2 t = vec2(1.0) - eh_en;
 	vec2 t2 = t * t;
-	return vec2(f0, f0) + (t2 * t2 * t) * (1.0 - f0);
+	return vec2(f0) + (t2 * t2 * t) * (1.0 - f0);
 }
 
 void main(){
-	float pi = 3.14159;
-	vec3 l = uLightVector;
+	// constants
 	vec3 lightColor = vec3(0.4, 0.4, 0.4);
 	vec3 eyePosition = vec3(0.0, 0.0, -10.0);
 	vec3 ambientDown = vec3(0.6, 0.4, 0.5);
@@ -127,30 +126,28 @@ void main(){
 	float f0 = 0.04;
 	float shininess = 256.0;
 
+//	float pi = 3.14159;
+	float directSpecularCoeff = 41.061975317708997; // (shininess + 2.0) / (2.0 * pi)
+
+	vec3 l = uLightVector;
 	vec3 e = normalize(eyePosition - vPosition);
 	vec3 n = normalize(vNormal);
-	float nl = clamp(dot(n, l), 0.0, 1.0);
 	vec3 h = normalize(l + e);
-	float nh = clamp(dot(n, h), 0.0, 1.0);
-	float eh = clamp(dot(e, h), 0.0, 1.0);
-	float en = clamp(dot(e, n), 0.0, 1.0);
-	vec2 fresnels = fresnel2(f0, vec2(eh, en));
-	float ry = -e.y + (n.y * (2.0 * en));
+	vec4 dots = vec4(dot(n, l), dot(n, h), dot(e, h), dot(e, n));
+	dots = clamp(dots, vec4(0.0), vec4(1.0));
+	vec2 fresnels = fresnel2(f0, dots.zw);
+	float ry = -e.y + (n.y * (2.0 * dots.w));
 
-	vec4 albedo = uAlbedo; // * texture2D(uSampler, vTexCoord); // テクスチャ貼るようになったら
-	vec3 directDiffuse = lightColor * nl;
-	vec3 indirectDiffuse = mix(ambientDown, ambientUp, (n.y * 0.5) + 0.5);
-	vec3 diffuse = (directDiffuse + indirectDiffuse) * albedo.xyz * (1.0 - f0);
+	vec3 directDiffuse = lightColor * dots.x;
+	vec3 indirectDiffuse = mix(ambientDown, ambientUp, (n.y * 0.5) + 0.5); // 半球ライト
+	vec3 diffuse = (directDiffuse + indirectDiffuse) * uAlbedo.xyz * (1.0 - f0);
 
-	vec3 directSpecular = lightColor * (fresnels.x * pow(nh, shininess) * (shininess + 2.0) / (2.0 * pi));
+	vec3 directSpecular = lightColor * (fresnels.x * pow(dots.y, shininess) * directSpecularCoeff);
 	vec3 indirectSpecular = mix(ambientDown, ambientUp, (ry * 0.5) + 0.5) * fresnels.y;
 	vec3 specular = directSpecular + indirectSpecular;
 
 	gl_FragColor.xyz = diffuse + specular + uEmission;
-	gl_FragColor.w = mix(albedo.w, 1.0, fresnels.y);
-
-//	gl_FragColor.xyz = indirectSpecular;
-//	gl_FragColor.w = 1.0;
+	gl_FragColor.w = mix(uAlbedo.w, 1.0, fresnels.y);
 }
 </script>
 
