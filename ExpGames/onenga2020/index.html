@@ -3994,7 +3994,8 @@ void main(){
 				bgm: null,
 				audioExt: null,
 				unko: null,
-				lightRotator: null
+				lightRotator: null,
+				frameTime: 0,
 			};
 			var setResolution = function (canvas, requestAspect) {
 				var windowWidth = window.innerWidth;
@@ -4032,6 +4033,7 @@ void main(){
 				console.log('logical: ' + logicalWidth + 'x' + logicalHeight);
 				console.log('show: ' + showWidth + 'x' + showHeight);
 				console.log('canvas: ' + canvas.width + 'x' + canvas.height);
+				alert(windowWidth + 'x' + windowHeight + ' ' + pixelRatio + ' ' + showWidth + 'x' + showHeight + ' ' + canvasWidth + 'x' + canvasHeight + ' ' + maxWidth + 'x' + maxHeight);
 			};
 			var loadingScene = {
 				name: 'loading',
@@ -4356,7 +4358,9 @@ void main(){
 			};
 			var mainLoop = function () {
 				var now = Date.now();
-				state.deltaTime = Math.min(maxDeltaTime, (now - state.time) * 0.001);
+				var deltaTime = (now - state.time) * 0.001;
+				state.frameTime = ((state.frameTime - deltaTime) * 0.95) + deltaTime;
+				state.deltaTime = Math.min(maxDeltaTime, deltaTime);
 				state.time = now;
 				state.lightRotator.update(state.deltaTime);
 				if (state.unko) {
@@ -4381,17 +4385,11 @@ void main(){
 			};
 			var showDebugInfo = function(){
 				if (state.timeRenderer){
-					state.timeRenderer.value = Math.min(Math.round(1000 * state.deltaTime), 99);
-					state.widthRenderer.value = canvas.width;
-					state.heightRenderer.value = canvas.height;
-					state.widthRenderer.value = canvas.clientWidth;
-					state.heightRenderer.value = canvas.clientHeight;
+					state.timeRenderer.value = Math.min(Math.round(1000 * state.frameTime), 99);
 
 					var camera2dMatrix = state.camera2d.getMatrix();
 					state.spriteRenderer.clear();
 					state.timeRenderer.draw(state.spriteRenderer);
-					state.widthRenderer.draw(state.spriteRenderer);
-					state.heightRenderer.draw(state.spriteRenderer);
 					state.spriteRenderer.draw(state.gpu, camera2dMatrix);
 				}
 			};
@@ -4511,12 +4509,6 @@ void main(){
 				state.timeRenderer = new Kayac.NumberRenderer(state.digitSprites, 2);
 				state.timeRenderer.charWidth = 28;
 				state.timeRenderer.position = [0, 0];
-				state.widthRenderer = new Kayac.NumberRenderer(state.digitSprites, 4);
-				state.widthRenderer.charWidth = 28;
-				state.widthRenderer.position = [0, 50];
-				state.heightRenderer = new Kayac.NumberRenderer(state.digitSprites, 4);
-				state.heightRenderer.charWidth = 28;
-				state.heightRenderer.position = [0, 100];
 				changeScene(titleScene);
 			};
 			var loadAudio = function (name) {
