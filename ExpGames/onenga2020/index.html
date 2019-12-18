@@ -4008,18 +4008,20 @@ void main(){
 				}
 				// 少し余らせる
 				var pixelRatio = window.devicePixelRatio || 1;
-				var showWidth = windowWidth *  0.9;
-				var showHeight = windowHeight *  0.9;
+				var showWidth = windowWidth * 0.9;
+				var showHeight = windowHeight * 0.9;
 				var canvasWidth = showWidth * pixelRatio;
 				var canvasHeight = showHeight * pixelRatio;
 				// capをかける
-				if (canvasWidth > logicalWidth){
-					canvasHeight *= logicalWidth / canvasWidth;
-					canvasWidth = logicalWidth;
+				var maxWidth = Math.min(logicalWidth, canvasWidth);
+				if (canvasWidth > maxWidth){
+					canvasHeight *= maxWidth / canvasWidth;
+					canvasWidth = maxWidth;
 				}
-				if (canvasHeight > logicalHeight){
-					canvasWidth *= logicalHeight / canvasHeight;
-					canvasHeight = logicalHeight;
+				var maxHeight = Math.min(logicalHeight, canvasHeight);
+				if (canvasHeight > maxHeight){
+					canvasWidth *= maxHeight / canvasHeight;
+					canvasHeight = maxHeight;
 				}
 				canvas.width = Math.round(canvasWidth);
 				canvas.height = Math.round(canvasHeight);
@@ -4380,6 +4382,8 @@ void main(){
 			var showDebugInfo = function(){
 				if (state.timeRenderer){
 					state.timeRenderer.value = Math.min(Math.round(1000 * state.deltaTime), 99);
+state.timeRenderer.value = Math.floor(window.devicePixelRatio || 1) * 10;
+
 					state.widthRenderer.value = canvas.width;
 					state.heightRenderer.value = canvas.height;
 
