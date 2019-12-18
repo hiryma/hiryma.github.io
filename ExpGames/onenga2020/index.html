@@ -14,10 +14,12 @@
 			float: left;
 		}
 
+		/*
 		canvas {
 			border-style: solid;
 			border-width: 2px;
 		}
+		*/
 		-->
 	</style>
 	<meta charset="utf-8">
@@ -138,7 +140,7 @@ void main(){
 	vec4 albedo = uAlbedo; // * texture2D(uSampler, vTexCoord); // テクスチャ貼るようになったら
 	vec3 directDiffuse = lightColor * nl;
 	vec3 indirectDiffuse = mix(ambientDown, ambientUp, (n.y * 0.5) + 0.5);
-	vec3 diffuse = (directDiffuse + indirectDiffuse) * albedo.xyz;
+	vec3 diffuse = (directDiffuse + indirectDiffuse) * albedo.xyz * (1.0 - f0);
 
 	vec3 directSpecular = lightColor * (fresnels.x * pow(nh, shininess) * (shininess + 2.0) / (2.0 * pi));
 	vec3 indirectSpecular = mix(ambientDown, ambientUp, (ry * 0.5) + 0.5) * fresnels.y;
@@ -3464,7 +3466,7 @@ void main(){
 			{
 				"name": "result_text01",
 				"pivot": [0.5, 0.5],
-				"anchor": [0.5, 0.69],
+				"anchor": [0.5, 0.695],
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
@@ -3572,7 +3574,7 @@ void main(){
 			{
 				"name": "result_balance",
 				"pivot": [1, 0.5],
-				"anchor": [0.85, 0.61],
+				"anchor": [0.87, 0.61],
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
@@ -3617,7 +3619,7 @@ void main(){
 			{
 				"name": "result_size",
 				"pivot": [1, 0.5],
-				"anchor": [0.85, 0.52],
+				"anchor": [0.87, 0.52],
 				"scale": [1, 1],
 				"position": [0, 0],
 				"texcoordOffset": [0, 0],
@@ -3965,7 +3967,8 @@ void main(){
 			var maxDeltaTime = 0.1;
 			var topHeightFactor = 1.5; // 一番上のを他の段の何倍の高さにするか(ツノを含むので)
 			var defaultUnkoColor = [1, 0.6, 1];
-			var specialUnkoColor = [1, 1, 0.2];
+			var specialUnkoColor = [1, 1, 0.4];
+			var tweetHashTag = 'hoge';
 
 			//フレームをまたいで保持するデータ
 			var state = {
@@ -4004,9 +4007,29 @@ void main(){
 					windowWidth = Math.floor(windowHeight * requestAspect);
 				}
 				// 少し余らせる
-				canvas.width = Math.round(windowWidth * 0.9);
-				canvas.height = Math.round(windowHeight * 0.9);
-				console.log('logical: ' + logicalWidth + 'x' + logicalHeight + ' actual: ' + windowWidth + 'x' + windowHeight);
+				var pixelRatio = window.devicePixelRatio || 1;
+				var showWidth = windowWidth *  0.9;
+				var showHeight = windowHeight *  0.9;
+				var canvasWidth = showWidth * pixelRatio;
+				var canvasHeight = showHeight * pixelRatio;
+				// capをかける
+				if (canvasWidth > logicalWidth){
+					canvasHeight *= logicalWidth / canvasWidth;
+					canvasWidth = logicalWidth;
+				}
+				if (canvasHeight > logicalHeight){
+					canvasWidth *= logicalHeight / canvasHeight;
+					canvasHeight = logicalHeight;
+				}
+				canvas.width = Math.round(canvasWidth);
+				canvas.height = Math.round(canvasHeight);
+				// 表示サイズ調整
+				showWidth = Math.round(showWidth);
+				showHeight = Math.round(showHeight);
+				canvas.style = 'width: ' + showWidth + 'px; height:' + showHeight + 'px;';
+				console.log('logical: ' + logicalWidth + 'x' + logicalHeight);
+				console.log('show: ' + showWidth + 'x' + showHeight);
+				console.log('canvas: ' + canvas.width + 'x' + canvas.height);
 			};
 			var loadingScene = {
 				name: 'loading',
@@ -4051,7 +4074,7 @@ void main(){
 					addSprite('title');
 					addSprite('text_setsumei');
 					state.spriteRenderer.updateAnimation(state.deltaTime);
-					state.spriteRenderer.draw(state.gpu, camera2dMatrix)
+					state.spriteRenderer.draw(state.gpu, camera2dMatrix);
 				}
 			};
 			var addSprite = function (name) {
@@ -4124,7 +4147,7 @@ void main(){
 						addSprite('text_top');
 					}
 					state.spriteRenderer.updateAnimation(state.deltaTime);
-					state.spriteRenderer.draw(state.gpu, camera2dMatrix)
+					state.spriteRenderer.draw(state.gpu, camera2dMatrix);
 				}
 			};
 			var isInRange = function (v, min, max) {
@@ -4136,11 +4159,11 @@ void main(){
 			var showTweetWindow = function () {
 				var tweetUrl = 'https://twitter.com/intent/tweet?text=';
 				tweetUrl += encodeURIComponent('プログラム試験投稿してみた。消す。');
-				tweetUrl += '&hashtags=hoge';
-				var ret = window.open(
-					tweetUrl,
-					"(仮)ツイート実験中!!!");
-				console.log('window.open ' + ret);
+				tweetUrl += '&hashtags=' + tweetHashTag;
+				var anchor = document.createElement('a');
+				anchor.href = tweetUrl;
+				anchor.target = '_blank';
+				anchor.click();
 			};
 			var resultScene = {
 				name: 'result',
@@ -4220,26 +4243,14 @@ void main(){
 							state.unko.setColor(specialUnkoColor);
 						}
 					}
-					var digitSprites = [
-						state.spriteInstances['num_0'].sprite,
-						state.spriteInstances['num_1'].sprite,
-						state.spriteInstances['num_2'].sprite,
-						state.spriteInstances['num_3'].sprite,
-						state.spriteInstances['num_4'].sprite,
-						state.spriteInstances['num_5'].sprite,
-						state.spriteInstances['num_6'].sprite,
-						state.spriteInstances['num_7'].sprite,
-						state.spriteInstances['num_8'].sprite,
-						state.spriteInstances['num_9'].sprite,
-					];
-					this.sizeNumberRenderer = new Kayac.NumberRenderer(digitSprites, 3);
+					this.sizeNumberRenderer = new Kayac.NumberRenderer(state.digitSprites, 3);
 					this.sizeNumberRenderer.value = size;
-					this.sizeNumberRenderer.charWidth = 32;
-					this.sizeNumberRenderer.position = [600, 640];
-					this.balanceNumberRenderer = new Kayac.NumberRenderer(digitSprites, 3);
+					this.sizeNumberRenderer.charWidth = 28;
+					this.sizeNumberRenderer.position = [610, 640];
+					this.balanceNumberRenderer = new Kayac.NumberRenderer(state.digitSprites, 3);
 					this.balanceNumberRenderer.value = balance;
-					this.balanceNumberRenderer.charWidth = 32;
-					this.balanceNumberRenderer.position = [600, 755];
+					this.balanceNumberRenderer.charWidth = 28;
+					this.balanceNumberRenderer.position = [610, 755];
 
 					state.unko.startResultRotation();
 					this.time = 0;
@@ -4309,8 +4320,8 @@ void main(){
 				var canvasRect = canvas.getBoundingClientRect();
 				var canvasX = physicalScreenPosition.x - canvasRect.left;
 				var canvasY = physicalScreenPosition.y - canvasRect.top;
-				var x = canvasX * logicalWidth / canvas.width;
-				var y = canvasY * logicalHeight / canvas.height;
+				var x = canvasX * logicalWidth / canvas.clientWidth;
+				var y = canvasY * logicalHeight / canvas.clientHeight;
 				return Kayac.V2.createXy(x, y);
 			};
 
@@ -4364,6 +4375,22 @@ void main(){
 				}
 				window.requestAnimationFrame(mainLoop);
 				state.justDown = false;
+				// 以下デバグ描画
+				showDebugInfo();
+			};
+			var showDebugInfo = function(){
+				if (state.timeRenderer){
+					state.timeRenderer.value = Math.min(Math.round(1000 * state.deltaTime), 99);
+					state.widthRenderer.value = canvas.width;
+					state.heightRenderer.value = canvas.height;
+
+					var camera2dMatrix = state.camera2d.getMatrix();
+					state.spriteRenderer.clear();
+					state.timeRenderer.draw(state.spriteRenderer);
+					state.widthRenderer.draw(state.spriteRenderer);
+					state.heightRenderer.draw(state.spriteRenderer);
+					state.spriteRenderer.draw(state.gpu, camera2dMatrix);
+				}
 			};
 			var startBeforeLoad = function () {
 				state.scene = loadingScene;
@@ -4465,6 +4492,28 @@ void main(){
 					instance.transform = transform;
 					state.spriteInstances[item.name] = instance;
 				}
+
+				state.digitSprites = [
+					state.spriteInstances['num_0'].sprite,
+					state.spriteInstances['num_1'].sprite,
+					state.spriteInstances['num_2'].sprite,
+					state.spriteInstances['num_3'].sprite,
+					state.spriteInstances['num_4'].sprite,
+					state.spriteInstances['num_5'].sprite,
+					state.spriteInstances['num_6'].sprite,
+					state.spriteInstances['num_7'].sprite,
+					state.spriteInstances['num_8'].sprite,
+					state.spriteInstances['num_9'].sprite,
+				];
+				state.timeRenderer = new Kayac.NumberRenderer(state.digitSprites, 2);
+				state.timeRenderer.charWidth = 28;
+				state.timeRenderer.position = [0, 0];
+				state.widthRenderer = new Kayac.NumberRenderer(state.digitSprites, 4);
+				state.widthRenderer.charWidth = 28;
+				state.widthRenderer.position = [0, 50];
+				state.heightRenderer = new Kayac.NumberRenderer(state.digitSprites, 4);
+				state.heightRenderer.charWidth = 28;
+				state.heightRenderer.position = [0, 100];
 				changeScene(titleScene);
 			};
 			var loadAudio = function (name) {
