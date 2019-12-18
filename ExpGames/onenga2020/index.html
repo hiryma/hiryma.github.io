@@ -3964,7 +3964,7 @@ void main(){
 			var bottomScaleSpeed = 2;
 			var middleScaleSpeed = 4;
 			var topScaleSpeed = 6;
-			var maxDeltaTime = 0.1;
+			var maxDeltaTime = 1 / 20;
 			var topHeightFactor = 1.5; // 一番上のを他の段の何倍の高さにするか(ツノを含むので)
 			var defaultUnkoColor = [1, 0.6, 1];
 			var specialUnkoColor = [1, 1, 0.4];
@@ -4382,10 +4382,10 @@ void main(){
 			var showDebugInfo = function(){
 				if (state.timeRenderer){
 					state.timeRenderer.value = Math.min(Math.round(1000 * state.deltaTime), 99);
-state.timeRenderer.value = Math.floor(window.devicePixelRatio || 1) * 10;
-
 					state.widthRenderer.value = canvas.width;
 					state.heightRenderer.value = canvas.height;
+					state.widthRenderer.value = canvas.clientWidth;
+					state.heightRenderer.value = canvas.clientHeight;
 
 					var camera2dMatrix = state.camera2d.getMatrix();
 					state.spriteRenderer.clear();
