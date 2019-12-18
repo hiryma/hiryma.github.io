@@ -3998,13 +3998,6 @@ void main(){
 				frameTime: 0,
 			};
 			var setResolution = function (canvas, requestAspect) {
-				alert(
-					screen.width + 'x' + screen.height + '\n' +
-					window.innerWidth + 'x' + window.innerHeight + '\n' +
-					window.devicePixelRatio + '\n' +
-					document.documentElement.clientWidth + 'x' + document.documentElement.clientHeight);
-
-				// アスペクト比を考慮したウィンドウ内領域(レイアウト座標系)
 				// レイアウト座標系なので、実解像度とは全く関係ないことがある(幅980とか)
 				var windowW = window.innerWidth;
 				var windowH = window.innerHeight;
@@ -4049,6 +4042,13 @@ void main(){
 				console.log('logical: ' + logicalWidth + 'x' + logicalHeight);
 				console.log('element: ' + elementW + 'x' + elementH);
 				console.log('canvas: ' + pxW + 'x' + pxH);
+
+				alert(
+					pxW + 'x' + pxH + '\n' +
+					screen.width + 'x' + screen.height + '\n' +
+					window.innerWidth + 'x' + window.innerHeight + '\n' +
+					window.devicePixelRatio + '\n');
+
 			};
 			var loadingScene = {
 				name: 'loading',
