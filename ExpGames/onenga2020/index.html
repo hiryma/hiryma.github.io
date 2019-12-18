@@ -4033,7 +4033,7 @@ void main(){
 				console.log('logical: ' + logicalWidth + 'x' + logicalHeight);
 				console.log('show: ' + showWidth + 'x' + showHeight);
 				console.log('canvas: ' + canvas.width + 'x' + canvas.height);
-				alert(windowWidth + 'x' + windowHeight + ' ' + pixelRatio + ' ' + showWidth + 'x' + showHeight + ' ' + canvasWidth + 'x' + canvasHeight + ' ' + maxWidth + 'x' + maxHeight);
+				alert(window.innerWidth + 'x' + window.innerHeight + ' ' + pixelRatio + ' ' + showWidth + 'x' + showHeight + ' ' + canvasWidth + 'x' + canvasHeight + ' ' + maxWidth + 'x' + maxHeight + ' ' + document.documentElement.clientWidth + 'x' + document.documentElement.clientHeight);
 			};
 			var loadingScene = {
 				name: 'loading',
