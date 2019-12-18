@@ -4004,41 +4004,51 @@ void main(){
 					window.devicePixelRatio + '\n' +
 					document.documentElement.clientWidth + 'x' + document.documentElement.clientHeight);
 
-				var windowWidth = window.innerWidth;
-				var windowHeight = window.innerHeight;
-				console.log('window: ' + windowWidth + 'x' + windowHeight);
-				var windowAspect = windowWidth / windowHeight;
+				// アスペクト比を考慮したウィンドウ内領域(レイアウト座標系)
+				// レイアウト座標系なので、実解像度とは全く関係ないことがある(幅980とか)
+				var windowW = window.innerWidth;
+				var windowH = window.innerHeight;
+				console.log('window: ' + windowW + 'x' + windowH);
+				var windowAspect = windowW / windowH;
 				if (requestAspect > windowAspect) { // 横合わせ
-					windowHeight = Math.floor(windowWidth / requestAspect);
+					windowH = Math.floor(windowW / requestAspect);
 				} else { // 縦合わせ
-					windowWidth = Math.floor(windowHeight * requestAspect);
+					windowW = Math.floor(windowH * requestAspect);
 				}
-				// 少し余らせる
+				// その9割でcanvasをレイアウト
+				var elementW = windowW * 0.9;
+				var elementH = windowH * 0.9;
+
+				// 実canvas解像度の初期値は、レイアウト座標サイズにピクセル係数を乗じたもの
 				var pixelRatio = window.devicePixelRatio || 1;
-				var showWidth = windowWidth * 0.9;
-				var showHeight = windowHeight * 0.9;
-				var canvasWidth = showWidth * pixelRatio;
-				var canvasHeight = showHeight * pixelRatio;
+				var pxW = elementW * pixelRatio;
+				var pxH = elementH * pixelRatio;
+
+				// 最大ピクセル数は画面解像度と論理解像度で制約
+				var maxPxW = Math.min(logicalWidth, screen.width * pixelRatio);
+				var maxPxH = Math.min(logicalHeight, screen.height * pixelRatio);
+
 				// capをかける
-				var maxWidth = Math.min(logicalWidth, canvasWidth);
-				if (canvasWidth > maxWidth){
-					canvasHeight *= maxWidth / canvasWidth;
-					canvasWidth = maxWidth;
+				if (pxW > maxPxW){
+					pxH *= maxPxW / pxW;
+					pxW = maxPxW;
 				}
-				var maxHeight = Math.min(logicalHeight, canvasHeight);
-				if (canvasHeight > maxHeight){
-					canvasWidth *= maxHeight / canvasHeight;
-					canvasHeight = maxHeight;
+				if (pxH > maxPxH){
+					pxW *= maxPxH / pxH;
+					pxH = maxPxH;
 				}
-				canvas.width = Math.round(canvasWidth);
-				canvas.height = Math.round(canvasHeight);
-				// 表示サイズ調整
-				showWidth = Math.round(showWidth);
-				showHeight = Math.round(showHeight);
-				canvas.style = 'width: ' + showWidth + 'px; height:' + showHeight + 'px;';
+				pxW = Math.ceil(pxW);
+				pxH = Math.ceil(pxH);
+				elementW = Math.ceil(elementW);
+				elementH = Math.ceil(elementH);
+				// canvas解像度確定
+				canvas.width = pxW;
+				canvas.height = pxH;
+				canvas.style = 'width: ' + elementW + 'px; height:' + elementH + 'px;';
+
 				console.log('logical: ' + logicalWidth + 'x' + logicalHeight);
-				console.log('show: ' + showWidth + 'x' + showHeight);
-				console.log('canvas: ' + canvas.width + 'x' + canvas.height);
+				console.log('element: ' + elementW + 'x' + elementH);
+				console.log('canvas: ' + pxW + 'x' + pxH);
 			};
 			var loadingScene = {
 				name: 'loading',
