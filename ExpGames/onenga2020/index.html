@@ -3,10 +3,6 @@
 
 <head>
 	<link rel="icon" type="image/png" href="favicon.png">
-	<link rel="preload" href="uiAtlas.png" as="image">
-	<link rel="preload" href="bg.png" as="image">
-	<link rel="preload" href="se01_start_tap.ogg" as="audio">
-	<link rel="preload" href="se01_start_tap.mp3" as="audio">
 	<style type="text/css">
 		<!--
 		.center {
@@ -35,157 +31,6 @@
 		<canvas id="screen"></canvas>
 	</div>
 
-	<script id="3dvs" type="x-shader/x-vertex">
-precision mediump float;
-
-attribute vec2 aCoord; // theta, y
-
-varying vec3 vNormal;
-varying vec3 vPosition;
-
-uniform vec4 uTransform0;
-uniform vec4 uTransform1;
-uniform vec4 uTransform2;
-uniform vec4 uTransform3;
-uniform vec4 uToWorld0;
-uniform vec4 uToWorld1;
-uniform vec4 uToWorld2;
-uniform vec3 uToWorldNormal0;
-uniform vec3 uToWorldNormal1;
-uniform vec3 uToWorldNormal2;
-uniform vec4 uPolynominal; //0,1,2,3次の順
-uniform float uPolynominal4; //4次の項
-
-void main(){
-	float dirX = cos(aCoord.x);
-	float dirZ = sin(aCoord.x);
-	float y = aCoord.y;
-	float l;
-	l = uPolynominal4;
-	l *= y;
-	l += uPolynominal.w;
-	l *= y;
-	l += uPolynominal.z;
-	l *= y;
-	l += uPolynominal.y;
-	l *= y;
-	l += uPolynominal.x;
-
-	vec4 p = vec4(dirX * l, y, dirZ * l, 1.0);
-
-	gl_Position.x = dot(uTransform0, p);
-	gl_Position.y = dot(uTransform1, p);
-	gl_Position.z = dot(uTransform2, p);
-	gl_Position.w = dot(uTransform3, p);
-
-	// 法線生成
-	float dl;
-	dl = 4.0 * uPolynominal4;
-	dl *= y;
-	dl += 3.0 * uPolynominal.w;
-	dl *= y;
-	dl += 2.0 * uPolynominal.z;
-	dl *= y;
-	dl += uPolynominal.y;
-	// タンジェントは2次元座標で(1,dl)なので、これを3次元に移す
-	vec3 n;
-	n.x = dirX;
-	n.z = dirZ;
-	n.y = -dl;
-	n = normalize(n);
-
-	vNormal.x = dot(uToWorldNormal0, n);
-	vNormal.y = dot(uToWorldNormal1, n);
-	vNormal.z = dot(uToWorldNormal2, n);
-
-	vPosition.x = dot(uToWorld0, p);
-	vPosition.y = dot(uToWorld1, p);
-	vPosition.z = dot(uToWorld2, p);
-}
-</script>
-
-	<script id="3dfs" type="x-shader/x-fragment">
-precision mediump float;
-uniform sampler2D uSampler;
-uniform vec4 uAlbedo;
-uniform vec3 uEmission;
-uniform vec3 uLightVector;
-
-varying vec3 vNormal; // world
-varying vec3 vPosition; // world
-
-vec2 fresnel2(float f0, vec2 eh_en){
-	vec2 t = vec2(1.0) - eh_en;
-	vec2 t2 = t * t;
-	return vec2(f0) + (t2 * t2 * t) * (1.0 - f0);
-}
-
-void main(){
-	// constants
-	vec3 lightColor = vec3(0.4, 0.4, 0.4);
-	vec3 eyePosition = vec3(0.0, 0.0, -10.0);
-	vec3 ambientDown = vec3(0.6, 0.4, 0.5);
-	vec3 ambientUp = vec3(0.5, 0.5, 0.5);
-	float f0 = 0.04;
-	float shininess = 256.0;
-
-//	float pi = 3.14159;
-	float directSpecularCoeff = 41.061975317708997; // (shininess + 2.0) / (2.0 * pi)
-
-	vec3 l = uLightVector;
-	vec3 e = normalize(eyePosition - vPosition);
-	vec3 n = normalize(vNormal);
-	vec3 h = normalize(l + e);
-	vec4 dots = vec4(dot(n, l), dot(n, h), dot(e, h), dot(e, n));
-	dots = clamp(dots, vec4(0.0), vec4(1.0));
-	vec2 fresnels = fresnel2(f0, dots.zw);
-	float ry = -e.y + (n.y * (2.0 * dots.w));
-
-	vec3 directDiffuse = lightColor * dots.x;
-	vec3 indirectDiffuse = mix(ambientDown, ambientUp, (n.y * 0.5) + 0.5); // 半球ライト
-	vec3 diffuse = (directDiffuse + indirectDiffuse) * uAlbedo.xyz * (1.0 - f0);
-
-	vec3 directSpecular = lightColor * (fresnels.x * pow(dots.y, shininess) * directSpecularCoeff);
-	vec3 indirectSpecular = mix(ambientDown, ambientUp, (ry * 0.5) + 0.5) * fresnels.y;
-	vec3 specular = directSpecular + indirectSpecular;
-
-	gl_FragColor.xyz = diffuse + specular + uEmission;
-	gl_FragColor.w = mix(uAlbedo.w, 1.0, fresnels.y);
-}
-</script>
-
-	<script id="2dvs" type="x-shader/x-vertex">
-precision mediump float;
-attribute vec2 aPosition;
-attribute vec2 aTexCoord;
-attribute vec4 aColor;
-varying vec2 vTexCoord;
-varying vec4 vColor;
-uniform vec3 uTransform0;
-uniform vec3 uTransform1;
-
-void main(){
-	vec3 p = vec3(aPosition.xy, 1.0);
-	gl_Position.x = dot(uTransform0, p);
-	gl_Position.y = dot(uTransform1, p);
-	gl_Position.z = -1.0;
-	gl_Position.w = 1.0;
-	vTexCoord = aTexCoord;
-	vColor = aColor;
-}
-</script>
-
-	<script id="2dfs" type="x-shader/x-fragment">
-precision mediump float;
-uniform sampler2D uSampler;
-varying vec2 vTexCoord;
-varying vec4 vColor;
-
-void main(){
-	gl_FragColor = texture2D(uSampler, vTexCoord) * vColor;
-}
-</script>
-
 	<script id="utilLib">
 		"use strict";
 		var Kayac = Kayac || {}; //名前空間オブジェクト
@@ -213,7 +58,7 @@ void main(){
 
 		//画像ロード
 		//srcはHTMLImageElement, Blob, urlが入ったstringのいずれか
-		Kayac.startLoadImage = function (src, name, callback) {
+		Kayac.startLoadImage = function (src, name) {
 			//ImgかBlobか判定
 			var url;
 			var img;
@@ -234,33 +79,11 @@ void main(){
 			if (!srcIsImg) {
 				img = document.createElement('img');
 				img.style = 'display:none;';
+				img.id = name;
 				document.body.appendChild(img);
 			}
-			var onLoadEnd = function (e) {
-				var canvas = document.createElement('canvas');
-				canvas.style = 'display:none;';
-				var w = img.width;
-				var h = img.height;
-				canvas.width = w;
-				canvas.height = h;
-				document.body.appendChild(canvas);
-				var context = canvas.getContext('2d');
-				context.drawImage(img, 0, 0);
-				var imageData = context.getImageData(0, 0, w, h);
-				var image = { width: w, height: h, name: name, data: null };
-				image.data = new Uint8Array(imageData.data.buffer);
-				var body = document.body;
-				body.removeChild(canvas);
-				if (!srcIsImg) {
-					body.removeChild(img);
-				}
-				if (srcIsBlob) { //後始末
-					URL.revokeObjectURL(url);
-				}
-				callback(image);
-			};
-			img.addEventListener('load', onLoadEnd, false);
 			img.src = url;
+			return img;
 		};
 
 		//e:HTMLElement。中のテキストを結合して返す
@@ -275,6 +98,29 @@ void main(){
 			}
 			return r;
 		};
+	</script>
+
+	<script id="prefetcher">
+		var UnkoNenga = UnkoNenga || {};
+		UnkoNenga.fetchedImageElements = [];
+
+		UnkoNenga.fetchImages = function () {
+			UnkoNenga.fetchingTextureCount = 2;
+			UnkoNenga.fetchedImageElements.push(Kayac.startLoadImage('bg.png', 'bg'));
+			UnkoNenga.fetchedImageElements.push(Kayac.startLoadImage('uiAtlas.png', 'uiAtlas'));
+		};
+		UnkoNenga.isImagesFetched = function () {
+			var complete = true;
+			for (var i = 0; i < UnkoNenga.fetchedImageElements.length; ++i){
+				if (UnkoNenga.fetchedImageElements[i].complete === false){
+					complete = false;
+					break;
+				}
+			}
+			return complete;
+		};
+		UnkoNenga.fetchImages(); // もうここで実行
+
 	</script>
 
 	<script id="glLib">
@@ -728,6 +574,8 @@ void main(){
 			gl.bindTexture(gl.TEXTURE_2D, this.mGlObject);
 			if (img) {
 				gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+				this.width = img.width;
+				this.height = img.height;
 			} else if (arg.data) {
 				gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, arg.width, arg.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, arg.data);
 			} else {
@@ -3666,6 +3514,157 @@ void main(){
 
 	</script>
 
+	<script id="3dvs" type="x-shader/x-vertex">
+precision mediump float;
+
+attribute vec2 aCoord; // theta, y
+
+varying vec3 vNormal;
+varying vec3 vPosition;
+
+uniform vec4 uTransform0;
+uniform vec4 uTransform1;
+uniform vec4 uTransform2;
+uniform vec4 uTransform3;
+uniform vec4 uToWorld0;
+uniform vec4 uToWorld1;
+uniform vec4 uToWorld2;
+uniform vec3 uToWorldNormal0;
+uniform vec3 uToWorldNormal1;
+uniform vec3 uToWorldNormal2;
+uniform vec4 uPolynominal; //0,1,2,3次の順
+uniform float uPolynominal4; //4次の項
+
+void main(){
+	float dirX = cos(aCoord.x);
+	float dirZ = sin(aCoord.x);
+	float y = aCoord.y;
+	float l;
+	l = uPolynominal4;
+	l *= y;
+	l += uPolynominal.w;
+	l *= y;
+	l += uPolynominal.z;
+	l *= y;
+	l += uPolynominal.y;
+	l *= y;
+	l += uPolynominal.x;
+
+	vec4 p = vec4(dirX * l, y, dirZ * l, 1.0);
+
+	gl_Position.x = dot(uTransform0, p);
+	gl_Position.y = dot(uTransform1, p);
+	gl_Position.z = dot(uTransform2, p);
+	gl_Position.w = dot(uTransform3, p);
+
+	// 法線生成
+	float dl;
+	dl = 4.0 * uPolynominal4;
+	dl *= y;
+	dl += 3.0 * uPolynominal.w;
+	dl *= y;
+	dl += 2.0 * uPolynominal.z;
+	dl *= y;
+	dl += uPolynominal.y;
+	// タンジェントは2次元座標で(1,dl)なので、これを3次元に移す
+	vec3 n;
+	n.x = dirX;
+	n.z = dirZ;
+	n.y = -dl;
+	n = normalize(n);
+
+	vNormal.x = dot(uToWorldNormal0, n);
+	vNormal.y = dot(uToWorldNormal1, n);
+	vNormal.z = dot(uToWorldNormal2, n);
+
+	vPosition.x = dot(uToWorld0, p);
+	vPosition.y = dot(uToWorld1, p);
+	vPosition.z = dot(uToWorld2, p);
+}
+</script>
+
+	<script id="3dfs" type="x-shader/x-fragment">
+precision mediump float;
+uniform sampler2D uSampler;
+uniform vec4 uAlbedo;
+uniform vec3 uEmission;
+uniform vec3 uLightVector;
+
+varying vec3 vNormal; // world
+varying vec3 vPosition; // world
+
+vec2 fresnel2(float f0, vec2 eh_en){
+	vec2 t = vec2(1.0) - eh_en;
+	vec2 t2 = t * t;
+	return vec2(f0) + (t2 * t2 * t) * (1.0 - f0);
+}
+
+void main(){
+	// constants
+	vec3 lightColor = vec3(0.4, 0.4, 0.4);
+	vec3 eyePosition = vec3(0.0, 0.0, -10.0);
+	vec3 ambientDown = vec3(0.6, 0.4, 0.5);
+	vec3 ambientUp = vec3(0.5, 0.5, 0.5);
+	float f0 = 0.04;
+	float shininess = 256.0;
+
+//	float pi = 3.14159;
+	float directSpecularCoeff = 41.061975317708997; // (shininess + 2.0) / (2.0 * pi)
+
+	vec3 l = uLightVector;
+	vec3 e = normalize(eyePosition - vPosition);
+	vec3 n = normalize(vNormal);
+	vec3 h = normalize(l + e);
+	vec4 dots = vec4(dot(n, l), dot(n, h), dot(e, h), dot(e, n));
+	dots = clamp(dots, vec4(0.0), vec4(1.0));
+	vec2 fresnels = fresnel2(f0, dots.zw);
+	float ry = -e.y + (n.y * (2.0 * dots.w));
+
+	vec3 directDiffuse = lightColor * dots.x;
+	vec3 indirectDiffuse = mix(ambientDown, ambientUp, (n.y * 0.5) + 0.5); // 半球ライト
+	vec3 diffuse = (directDiffuse + indirectDiffuse) * uAlbedo.xyz * (1.0 - f0);
+
+	vec3 directSpecular = lightColor * (fresnels.x * pow(dots.y, shininess) * directSpecularCoeff);
+	vec3 indirectSpecular = mix(ambientDown, ambientUp, (ry * 0.5) + 0.5) * fresnels.y;
+	vec3 specular = directSpecular + indirectSpecular;
+
+	gl_FragColor.xyz = diffuse + specular + uEmission;
+	gl_FragColor.w = mix(uAlbedo.w, 1.0, fresnels.y);
+}
+</script>
+
+	<script id="2dvs" type="x-shader/x-vertex">
+precision mediump float;
+attribute vec2 aPosition;
+attribute vec2 aTexCoord;
+attribute vec4 aColor;
+varying vec2 vTexCoord;
+varying vec4 vColor;
+uniform vec3 uTransform0;
+uniform vec3 uTransform1;
+
+void main(){
+	vec3 p = vec3(aPosition.xy, 1.0);
+	gl_Position.x = dot(uTransform0, p);
+	gl_Position.y = dot(uTransform1, p);
+	gl_Position.z = -1.0;
+	gl_Position.w = 1.0;
+	vTexCoord = aTexCoord;
+	vColor = aColor;
+}
+</script>
+
+	<script id="2dfs" type="x-shader/x-fragment">
+precision mediump float;
+uniform sampler2D uSampler;
+varying vec2 vTexCoord;
+varying vec4 vColor;
+
+void main(){
+	gl_FragColor = texture2D(uSampler, vTexCoord) * vColor;
+}
+</script>
+
 	<script>
 		"use strict";
 		var UnkoNenga = UnkoNenga || {};
@@ -4047,7 +4046,6 @@ void main(){
 				cursorPos: Kayac.V2.createXy(0, 0),
 				prevCursorPos: Kayac.V2.createXy(0, 0),
 				textures: {},
-				loadingTextureCount: -1,
 				time: null,
 				matrixStack: null,
 				deltaTime: 0,
@@ -4105,19 +4103,18 @@ void main(){
 				console.log('logical: ' + logicalWidth + 'x' + logicalHeight);
 				console.log('element: ' + elementW + 'x' + elementH);
 				console.log('canvas: ' + pxW + 'x' + pxH);
-/*
-				alert(
-					pxW + 'x' + pxH + '\n' +
-					screen.width + 'x' + screen.height + '\n' +
-					window.innerWidth + 'x' + window.innerHeight + '\n' +
-					window.devicePixelRatio + '\n');
-*/
+				/*
+								alert(
+									pxW + 'x' + pxH + '\n' +
+									screen.width + 'x' + screen.height + '\n' +
+									window.innerWidth + 'x' + window.innerHeight + '\n' +
+									window.devicePixelRatio + '\n');
+				*/
 			};
 			var loadingScene = {
 				name: 'loading',
 				update: function () {
-					if (state.loadingTextureCount == 0) {
-						state.loadingTextureCount = -1;
+					if (UnkoNenga.isImagesFetched() === true) {
 						startAfterLoad();
 					}
 				},
@@ -4135,9 +4132,9 @@ void main(){
 					state.unko.startDefaultRotation(false);
 				},
 				onDown: function () {
-					if (state.se.start){
+					if (state.se.start) {
 						state.se.start.play();
-					}else{
+					} else {
 						state.se.start = playAudio('se01_start_tap');
 					}
 				},
@@ -4216,7 +4213,7 @@ void main(){
 							state.unko.fixScaleAnim.setData(UnkoNenga.unkoScaleFixAnimation.scaleFinal);
 							state.unko.flashFinal();
 							state.unko.startScaling(0, 0);
-//							state.bgm.volume = 0.5;
+							//							state.bgm.volume = 0.5;
 						}
 					}
 				},
@@ -4360,9 +4357,9 @@ void main(){
 					this.manualRotationEnabled = false;
 					this.noInputTime = 0;
 				},
-				terminate: function(){
-					if (state.bgm !== null){
-//						state.bgm.volume = 1;
+				terminate: function () {
+					if (state.bgm !== null) {
+						//						state.bgm.volume = 1;
 					}
 				},
 				update: function () {
@@ -4488,9 +4485,7 @@ void main(){
 			var mainLoop = function () {
 				var now = Date.now();
 				var deltaTime = (now - state.time) * 0.001;
-				//				state.frameTime = ((state.frameTime - deltaTime) * 0.95) + deltaTime;
-				state.frameTime *= 0.99;
-				state.frameTime += Math.pow(deltaTime, 2) * 0.01;
+				state.frameTime = ((state.frameTime - deltaTime) * 0.95) + deltaTime;
 				state.deltaTime = Math.min(maxDeltaTime, deltaTime);
 				state.time = now;
 				state.lightRotator.update(state.deltaTime);
@@ -4513,7 +4508,7 @@ void main(){
 				state.justDown = false;
 				state.prevCursorPos.setV(state.cursorPos);
 				// 以下デバグ描画
-//				showDebugInfo();
+				//				showDebugInfo();
 			};
 			var onDown = function () {
 				if (state.scene !== null) {
@@ -4525,7 +4520,7 @@ void main(){
 			};
 			var showDebugInfo = function () {
 				if (state.timeRenderer) {
-					state.timeRenderer.value = Math.min(Math.round(1000 * Math.pow(state.frameTime, 0.5), 99999));
+					state.timeRenderer.value = Math.min(Math.round(1000 * state.frameTime, 99999));
 
 					var camera2dMatrix = state.camera2d.getMatrix();
 					state.spriteRenderer.clear();
@@ -4565,25 +4560,11 @@ void main(){
 					},
 					false);
 			};
-			var startLoad = function () {
-				state.loadingTextureCount = 2;
-				var onImageLoad = function (image) {
-					var arg = {
-						gpu: state.gpu,
-						name: image.name,
-						data: image.data,
-						width: image.width,
-						height: image.height,
-						mipmap: true
-					};
-					var texture = new Kayac.Texture(arg);
-					state.textures[image.name] = texture;
-					state.loadingTextureCount -= 1;
-				};
-				Kayac.startLoadImage('bg.png', 'bg', onImageLoad);
-				Kayac.startLoadImage('uiAtlas.png', 'uiAtlas', onImageLoad);
-			};
 			var startAfterLoad = function () {
+				for (var i = 0; i < UnkoNenga.fetchedImageElements.length; ++i){
+					var img = UnkoNenga.fetchedImageElements[i];
+					state.textures[img.id] = new Kayac.Texture({gpu: state.gpu, img: img});
+				}
 				// 背景
 				var sprite = new Kayac.Sprite();
 				sprite.name = 'background';
@@ -4776,7 +4757,7 @@ void main(){
 			var onBgmEnded = function (e) {
 				state.bgm.play();
 			};
-			var onClickScreenShot = function(e){
+			var onClickScreenShot = function (e) {
 				var dataUrl = canvas.toDataURL();
 				if (dataUrl) {
 					var anchor = document.createElement('a');
@@ -4804,7 +4785,6 @@ void main(){
 			setResolution(canvas, requestAspect);
 			initializeGpu(canvas);
 			startBeforeLoad();
-			startLoad();
 			mainLoop();
 		}());
 	</script>
