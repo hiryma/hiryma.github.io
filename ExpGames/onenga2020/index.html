@@ -4049,7 +4049,7 @@ void main(){
 				deltaTime: 0,
 				scene: null,
 				bgm: null,
-				se: null,
+				se: {},
 				audioExt: null,
 				unko: null,
 				lightRotator: null,
@@ -4131,7 +4131,11 @@ void main(){
 					state.unko.startDefaultRotation(false);
 				},
 				onDown: function () {
-					state.se = playAudio('se01_start_tap');
+					if (state.se.start){
+						state.se.start.play();
+					}else{
+						state.se.start = playAudio('se01_start_tap');
+					}
 				},
 				update: function () {
 					if (state.justDown === true) {
@@ -4177,19 +4181,12 @@ void main(){
 					button.setAnimation(uiAnimations['button_loop']);
 				},
 				onDown: function () {
-					var name = null;
 					if (this.progress === 0) {
-						name = 'se02_stop01_gedan'
+						state.se.stopBottom.play();
 					} else if (this.progress === 1) {
-						name = 'se03_stop02_tyuudan';
+						state.se.stopMiddle.play();
 					} else if (this.progress === 2) {
-						name = 'se04_stop03_zyoudan';
-					}
-					if (name !== null) {
-						if (state.se !== null) {
-							state.se.pause();
-						}
-						state.se = playAudio(name);
+						state.se.stopTop.play();
 					}
 				},
 				update: function () {
@@ -4215,8 +4212,7 @@ void main(){
 							state.unko.fixScaleAnim.setData(UnkoNenga.unkoScaleFixAnimation.scaleFinal);
 							state.unko.flashFinal();
 							state.unko.startScaling(0, 0);
-							state.bgm.volume = 0.25;
-							console.log('ducking');
+//							state.bgm.volume = 0.5;
 						}
 					}
 				},
@@ -4362,8 +4358,7 @@ void main(){
 				},
 				terminate: function(){
 					if (state.bgm !== null){
-						state.bgm.volume = 1;
-						console.log('disable ducking');
+//						state.bgm.volume = 1;
 					}
 				},
 				update: function () {
@@ -4657,6 +4652,7 @@ void main(){
 				if (state.audioExt !== null) {
 					var path = name + state.audioExt;
 					ret = new Audio(path);
+					ret.preload = true;
 				}
 				return ret;
 			};
@@ -4755,6 +4751,11 @@ void main(){
 					if (state.bgm !== null) {
 						state.bgm.addEventListener('ended', onBgmEnded, false);
 					}
+					// 全てロード開始
+					state.se.start = loadAudio('se01_start_tap');
+					state.se.stopBottom = loadAudio('se02_stop01_gedan');
+					state.se.stopMiddle = loadAudio('se03_stop02_tyuudan');
+					state.se.stopTop = loadAudio('se04_stop03_zyoudan');
 				}
 			};
 			var playAudio = function (name) {
