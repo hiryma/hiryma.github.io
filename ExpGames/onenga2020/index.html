@@ -3752,7 +3752,7 @@ void main(){
 			var z = Kayac.V3.createXyz(0, 0, 1);
 			var a = new Kayac.V3();
 			a.setCross(z, d);
-			a.mulS(0.01);
+			a.mulS(0.02);
 			a.rotateRev(this.transform.rotation);
 			this.angularVelocity.add(a);
 		};
@@ -4254,6 +4254,7 @@ void main(){
 				balanceNumberRenderer: null,
 				manualRotationEnabled: false,
 				time: 0,
+				noInputTime: 0,
 				initialize: function () {
 					// 採点。絶対仕様変わるよね
 					var bottomSize = state.unko.getScaleValue(state.unko.Parts.Bottom);
@@ -4339,6 +4340,7 @@ void main(){
 				update: function () {
 					var oldTime = this.time;
 					this.time += state.deltaTime;
+					this.noInputTime += state.deltaTime;
 					if (this.manualRotationEnabled === false){
 						if ((this.time >= 3) && (oldTime < 3)) {
 							this.manualRotationEnabled = true;
@@ -4350,11 +4352,13 @@ void main(){
 						}
 					}else{
 						if (state.down === true){
+							this.noInputTime = 0;
 							// カーソル更新
 							var d = Kayac.V2.createXy(0, 0);
 							d.setSub(state.cursorPos, state.prevCursorPos);
+							state.unko.angularVelocity.mulS(0.8); // ブレーキ
 							state.unko.rotateManually(d.x, d.y);
-						}else{
+						}else if (this.noInputTime >= 2){
 							state.unko.rotateManually(0.1, 0.01); // わずかに回しておく
 						}
 					}
