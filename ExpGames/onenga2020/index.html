@@ -4209,10 +4209,14 @@ void main(){
 						}
 					} else if (this.progress === 2) {
 						if (state.justDown === true) {
+							console.log('a');
 							changeScene(resultScene);
+							console.log('b');
 							state.unko.fixScaleAnim.setData(UnkoNenga.unkoScaleFixAnimation.scaleFinal);
 							state.unko.flashFinal();
 							state.unko.startScaling(0, 0);
+							state.bgm.volume = 0.25;
+							console.log('ducking');
 						}
 					}
 				},
@@ -4355,6 +4359,12 @@ void main(){
 					this.time = 0;
 					this.manualRotationEnabled = false;
 					this.noInputTime = 0;
+				},
+				terminate: function(){
+					if (state.bgm !== null){
+						state.bgm.volume = 1;
+						console.log('disable ducking');
+					}
 				},
 				update: function () {
 					var oldTime = this.time;
