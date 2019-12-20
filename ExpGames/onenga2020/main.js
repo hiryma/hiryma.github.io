@@ -524,8 +524,8 @@ UnkoNenga.uiTransforms = [
 	},
 	{
 		"name": "btm_retry",
-		"pivot": [0.5, 1],
-		"anchor": [0.5, 0.99],
+		"pivot": [0, 1],
+		"anchor": [0.065, 0.985],
 		"scale": [1, 1],
 		"position": [0, 0],
 		"texcoordOffset": [0, 0],
@@ -543,7 +543,7 @@ UnkoNenga.uiTransforms = [
 	{
 		"name": "btm_twitter",
 		"pivot": [1, 1],
-		"anchor": [0.99, 0.99],
+		"anchor": [0.92, 0.98],
 		"scale": [1, 1],
 		"position": [0, 0],
 		"texcoordOffset": [0, 0],
@@ -624,7 +624,7 @@ UnkoNenga.uiTransforms = [
 	{
 		"name": "btm_photo",
 		"pivot": [0.5, 1],
-		"anchor": [0.1, 0.99],
+		"anchor": [0.6, 0.985],
 		"scale": [1, 1],
 		"position": [0, 0],
 		"texcoordOffset": [0, 0],
@@ -1470,7 +1470,7 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 		if (!instance) {
 			return false;
 		}
-		return instance.isHit(state.cursorPos, logicalWidth, logicalHeight, 32);
+		return instance.isHit(state.cursorPos, logicalWidth, logicalHeight, 16);
 	};
 
 	var toLogicalScreenPosition = function (logicalPosOut, htmlPos) {

@@ -2543,11 +2543,11 @@ Kayac.SpriteInstance.prototype.isHit = function (p, parentWidth, parentHeight, m
 	if (p.y < minY) {
 		return false;
 	}
-	var maxX = minX + (this.sprite.size[0] * this.transform.scale[0]) + margin;
+	var maxX = topLeft.x + (this.sprite.size[0] * this.transform.scale[0]) + margin;
 	if (p.x > maxX) {
 		return false;
 	}
-	var maxY = minY + (this.sprite.size[1] * this.transform.scale[1]) + margin;
+	var maxY = topLeft.y + (this.sprite.size[1] * this.transform.scale[1]) + margin;
 	if (p.y > maxY) {
 		return false;
 	}
