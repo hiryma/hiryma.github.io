@@ -1222,44 +1222,46 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 	var showTweetWindow = function (size, balance, resultType) {
 		var text0 = '';
 		var text1 = '';
-		var text2 = '';
-		if (resultType === 0){ // 小醜
-			text0 = 'どんまい！😱';
-			text1 = 'なかなかイケてない感じの"うん"です';
-			text2 = '小醜運';
-		}else if (resultType === 1){ // 小美
-			text0 = 'どんまい！😱';
-			text1 = 'なかなかイケてない感じの"うん"です';
-			text2 = '小美運';
-		}else if (resultType === 2){ // 中醜
-			text0 = 'どんまい！😱';
-			text1 = 'なかなかイケてない感じの"うん"です';
-			text2 = '中醜運';
-		}else if (resultType === 3){ // 中美
-			text0 = 'どんまい！😱';
-			text1 = 'なかなかイケてない感じの"うん"です';
-			text2 = '中美運';
-		}else if (resultType === 4){ // 大醜
-			text0 = 'どんまい！😱';
-			text1 = 'なかなかイケてない感じの"うん"です';
-			text2 = '大醜運';
+		if (resultType === 6){ // 超美
+			text0 = '非の打ち所のない完璧な運です。';
 		}else if (resultType === 5){ // 大美
-			text0 = 'やったね！㊗';
-			text1 = 'とってもおっきくて、いい感じの"うん"です';
-			text2 = '大美運';
-		}else if (resultType === 6){ // 超美
-			text0 = 'やったね！㊗';
-			text1 = 'とってもおっきくて、いい感じの"うん"です';
-			text2 = '超美運';
+			text0 = '大きくて美しい運です。';
+		}else if (resultType === 3){ // 中美
+			text0 = 'イイ感じの運です。';
+		}else if (resultType === 1){ // 小美
+			text0 = 'とても個性的な運です。';
+		}else if (resultType === 0){ // 小醜
+			text0 = 'とても個性的な運です。';
+		}else if ((size < 30) || (balance < 30)){
+			text0 = 'とても個性的な運です。';
+		}else{
+			text0 = '一般的な運です。';
 		}
-		var message = text0 + '\n';
-		message += '2020年🐭あなたが招く"うん"は、\n';
-		message += text1 + '\n';
-		message += '世界に大きな"うん"が訪れますように！😊\n';
+
+		if (resultType === 0){ // 小醜
+			text1 = '小醜運';
+		}else if (resultType === 1){ // 小美
+			text1 = '小美運';
+		}else if (resultType === 2){ // 中醜
+			text1 = '中醜運';
+		}else if (resultType === 3){ // 中美
+			text1 = '中美運';
+		}else if (resultType === 4){ // 大醜
+			text1 = '大醜運';
+		}else if (resultType === 5){ // 大美
+			text1 = '大美運';
+		}else if (resultType === 6){ // 超美
+			text1 = '超美運';
+		}
+		var message = '【KAI運TAP】\n';
+		message += '今年の運は\n';
 		message += '＿人人人人人人＿\n';
-		message += '＞ 　' + text2 + '！　＜\n';
+		message += '＞ 　' + text1 + '！　＜\n';
 		message += '￣Y^Y^Y^Y^Y^Y￣\n'
-		message += 'サイズ：' + size + '点 バランス：' + balance + '点\n';
+		message += 'サイズ：' + size + '点\n';
+		message += 'バランス：' + balance + '点\n';
+		message += text0 + '\n\n';
+		message += '今年も世界に大きな運が訪れますように。\n';
 
 		var tweetUrl = 'https://twitter.com/intent/tweet?text=';
 		tweetUrl += encodeURIComponent(message);
