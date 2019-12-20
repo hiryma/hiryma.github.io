@@ -2283,7 +2283,8 @@ Kayac.Mesh.prototype.draw = function (
 	albedo,
 	emission,
 	polynominal,
-	lightVector) {
+	lightVector,
+	fresnel0) {
 
 	gpu.setVertexBuffer(this.mVertexBuffer);
 	gpu.setIndexBuffer(this.mIndexBuffer);
@@ -2307,6 +2308,7 @@ Kayac.Mesh.prototype.draw = function (
 	gpu.setConstant('uToWorldNormal2', [m.m20, m.m21, m.m22]);
 	gpu.setConstant('uAlbedo', albedo);
 	gpu.setConstant('uEmission', emission);
+	gpu.setConstant('uFresnel0', fresnel0);
 	gpu.setConstant('uPolynominal', polynominal);
 	var poly4 = (polynominal.length >= 5) ? polynominal[4] : 0;
 	gpu.setConstant('uPolynominal4', poly4);

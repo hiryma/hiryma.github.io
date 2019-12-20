@@ -665,7 +665,7 @@ UnkoNenga.Unko = function (gpu, shader, vertexFormat, plateInterval, plateThickn
 	this.scaleIndex = -1;
 	this.fixScaleAnim = new Kayac.SpringDamper();
 	this.fixScaleAnim.value = 1;
-	this.color = [0, 0, 0];
+	this.additionalEmission = 0;
 	this.rotator = new UnkoNenga.Rotator(
 		Kayac.V3.createXyz(1, 0, 0),
 		Kayac.V3.createXyz(0, 1, 0));
@@ -673,6 +673,9 @@ UnkoNenga.Unko = function (gpu, shader, vertexFormat, plateInterval, plateThickn
 	this.angularVelocity = Kayac.V3.createXyz(0, 0, 0);
 	this.startDefaultRotation(false);
 	this.resetScale();
+
+	this.mColor = [0, 0, 0];
+	this.mFresnel0 = 0.04;
 };
 UnkoNenga.Unko.prototype.Parts = {
 	Bottom: 0,
@@ -680,6 +683,8 @@ UnkoNenga.Unko.prototype.Parts = {
 	Top: 2,
 	Count: 3,
 };
+
+
 
 UnkoNenga.Unko.prototype.startResultRotation = function () {
 	this.rotatorEnabled = true;
@@ -741,10 +746,15 @@ UnkoNenga.Unko.prototype.rotateManually = function (x, y) {
 };
 
 UnkoNenga.Unko.prototype.setColor = function (color) {
-	this.color[0] = color[0];
-	this.color[1] = color[1];
-	this.color[2] = color[2];
-}
+	this.mColor[0] = color[0];
+	this.mColor[1] = color[1];
+	this.mColor[2] = color[2];
+};
+
+UnkoNenga.Unko.prototype.setFresnel0 = function (fresnel0) {
+	this.mFresnel0 = fresnel0;
+};
+
 UnkoNenga.Unko.prototype.getScaleValue = function (partsIndex) {
 	return this.scales[partsIndex];
 };
@@ -857,7 +867,7 @@ UnkoNenga.Unko.prototype.draw = function (
 			Kayac.solveLinearSystem(m, polynominal, 4);
 			polynominal[4] = p4;
 		}
-		var emissionStrength = this.fixFlashes[i].value;
+		var emissionStrength = this.fixFlashes[i].value + this.additionalEmission;
 		emission[0] = emissionStrength * albedo[0];
 		emission[1] = emissionStrength * albedo[1];
 		emission[2] = emissionStrength * albedo[2];
@@ -904,9 +914,9 @@ UnkoNenga.Unko.prototype.setTransparency = function (gpu, albedoOut, isTranspare
 	} else {
 		gpu.setBlendEnabled(false);
 		gpu.setDepthTest(true, true);
-		albedoOut[0] = this.color[0];
-		albedoOut[1] = this.color[1];
-		albedoOut[2] = this.color[2];
+		albedoOut[0] = this.mColor[0];
+		albedoOut[1] = this.mColor[1];
+		albedoOut[2] = this.mColor[2];
 		albedoOut[3] = 1;
 	}
 };
@@ -928,7 +938,7 @@ UnkoNenga.Unko.prototype.drawMesh = function (
 	pvwm.setMul44x34(pvm, wm);
 	var nm = new Kayac.M33(); // 法線変換行列
 	nm.setInvTranspose34(wm);
-	mesh.draw(gpu, pvwm, wm, nm, albedo, emission, polynominal, lightVector);
+	mesh.draw(gpu, pvwm, wm, nm, albedo, emission, polynominal, lightVector, this.mFresnel0);
 	matrixStack.pop();
 };
 UnkoNenga.Unko.prototype.startScaling = function (speed, index) {
@@ -990,7 +1000,6 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 	var topHeightFactor = 1.5; // 一番上のを他の段の何倍の高さにするか(ツノを含むので)
 	var defaultUnkoColor = [1, 0.6, 1];
 	var specialUnkoColor = [1, 1, 0.4];
-	var tweetHashTag = 'hoge';
 
 	//フレームをまたいで保持するデータ
 	var state = {
@@ -1210,16 +1219,54 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 			state.spriteRenderer.draw(state.gpu, camera2dMatrix);
 		}
 	};
-	var isInRange = function (v, min, max) {
-		return ((v >= min) && (v <= max));
-	};
-	var isNearlyEqual = function (v, ref, range) {
-		return isInRange(v, ref - range, ref + range);
-	};
-	var showTweetWindow = function () {
+	var showTweetWindow = function (size, balance, resultType) {
+		var text0 = '';
+		var text1 = '';
+		var text2 = '';
+		if (resultType === 0){ // 小醜
+			text0 = 'どんまい！😱';
+			text1 = 'なかなかイケてない感じの"うん"です';
+			text2 = '小醜運';
+		}else if (resultType === 1){ // 小美
+			text0 = 'どんまい！😱';
+			text1 = 'なかなかイケてない感じの"うん"です';
+			text2 = '小美運';
+		}else if (resultType === 2){ // 中醜
+			text0 = 'どんまい！😱';
+			text1 = 'なかなかイケてない感じの"うん"です';
+			text2 = '中醜運';
+		}else if (resultType === 3){ // 中美
+			text0 = 'どんまい！😱';
+			text1 = 'なかなかイケてない感じの"うん"です';
+			text2 = '中美運';
+		}else if (resultType === 4){ // 大醜
+			text0 = 'どんまい！😱';
+			text1 = 'なかなかイケてない感じの"うん"です';
+			text2 = '大醜運';
+		}else if (resultType === 5){ // 大美
+			text0 = 'やったね！㊗';
+			text1 = 'とってもおっきくて、いい感じの"うん"です';
+			text2 = '大美運';
+		}else if (resultType === 6){ // 超美
+			text0 = 'やったね！㊗';
+			text1 = 'とってもおっきくて、いい感じの"うん"です';
+			text2 = '超美運';
+		}
+		var message = text0 + '\n';
+		message += '2020年🐭あなたが招く"うん"は、\n';
+		message += text1 + '\n';
+		message += '世界に大きな"うん"が訪れますように！😊\n';
+		message += '＿人人人人人人＿\n';
+		message += '＞ 　' + text2 + '！　＜\n';
+		message += '￣Y^Y^Y^Y^Y^Y￣\n'
+		message += 'サイズ：' + size + '点 バランス：' + balance + '点\n';
+
 		var tweetUrl = 'https://twitter.com/intent/tweet?text=';
-		tweetUrl += encodeURIComponent('プログラム試験投稿してみた。消す。');
-		tweetUrl += '&hashtags=' + tweetHashTag;
+		tweetUrl += encodeURIComponent(message);
+		tweetUrl += '&hashtags=';
+		tweetUrl += encodeURIComponent('おみくじ,あけおめ,開運,面白法人カヤック');
+		tweetUrl += '&url=';
+		tweetUrl += encodeURIComponent('https://hiryma.github.io/ExpGames/onenga2020/index.html');
 		var anchor = document.createElement('a');
 		anchor.href = tweetUrl;
 		anchor.click();
@@ -1234,6 +1281,9 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 		manualRotationEnabled: false,
 		time: 0,
 		noInputTime: 0,
+		sizeScore: 0,
+		balanceScore: 0,
+		resultType: 0,
 		initialize: function () {
 			// 採点。絶対仕様変わるよね
 			var bottomSize = state.unko.getScaleValue(state.unko.Parts.Bottom);
@@ -1280,30 +1330,42 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 			} else {
 				this.sizeSprite = state.spriteInstances['result_size_large'];
 			}
-			console.log('score size=' + size + ' balance=' + balance + ' mb=' + mb + ' tm=' + tm);
 
+			var resultNames = [
+				'result_text_syobsyuuun',
+				'result_text_syobiun',
+				'result_text_cyubsyuuun',
+				'result_text_cyubiun',
+				'result_text_daibsyuuun',
+				'result_text_daibiun',
+				'result_text_cyoubiun'
+			];
+
+			console.log('score size=' + size + ' balance=' + balance + ' mb=' + mb + ' tm=' + tm);
+			this.resultType = 0;
 			if (size < 50) {
 				if (balance < 60) {
-					this.resultSprite = state.spriteInstances['result_text_syobsyuuun'];
+					this.resultType = 0;
 				} else {
-					this.resultSprite = state.spriteInstances['result_text_syobiun'];
+					this.resultType = 1;
 				}
 			} else if (size < 100) {
 				if (balance < 60) {
-					this.resultSprite = state.spriteInstances['result_text_cyubsyuuun'];
+					this.resultType = 2;
 				} else {
-					this.resultSprite = state.spriteInstances['result_text_cyubiun'];
+					this.resultType = 3;
 				}
 			} else {
 				if (balance < 60) {
-					this.resultSprite = state.spriteInstances['result_text_daibsyuuun'];
+					this.resultType = 4;
 				} else if (balance < 90) {
-					this.resultSprite = state.spriteInstances['result_text_daibiun'];
+					this.resultType = 5;
 				} else {
-					this.resultSprite = state.spriteInstances['result_text_cyoubiun'];
+					this.resultType = 6;
 					state.unko.setColor(specialUnkoColor);
 				}
 			}
+			this.resultSprite = state.spriteInstances[resultNames[this.resultType]];
 			this.sizeNumberRenderer = new Kayac.NumberRenderer(state.digitSprites, 3);
 			this.sizeNumberRenderer.value = size;
 			this.sizeNumberRenderer.charWidth = 28;
@@ -1317,6 +1379,10 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 			this.time = 0;
 			this.manualRotationEnabled = false;
 			this.noInputTime = 0;
+
+			this.sizeScore = size;
+			this.balanceScore = balance;
+
 		},
 		terminate: function () {
 			if (state.bgm !== null) {
@@ -1355,7 +1421,7 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 					changeScene(titleScene);
 					state.unko.setColor(defaultUnkoColor);
 				} else if (isHitUi('btm_twitter')) {
-					showTweetWindow();
+					showTweetWindow(this.sizeScore, this.balanceScore, this.resultType);
 				} else if (isHitUi('btm_photo')) {
 					onClickScreenShot();
 				}
@@ -1722,7 +1788,7 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 		var dataUrl = canvas.toDataURL();
 		if (dataUrl) {
 			var anchor = document.createElement('a');
-			anchor.download = 'kayacOnenga2019.png';
+			anchor.download = 'kayacOnenga2020.png';
 			anchor.href = dataUrl;
 			anchor.click();
 		}
