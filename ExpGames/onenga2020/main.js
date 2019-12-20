@@ -1788,13 +1788,41 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 	};
 	var onClickScreenShot = function (e) {
 		var dataUrl = canvas.toDataURL();
+		var tmpCanvas = document.createElement('canvas');
+		var cutTop = 0.02;
+		var cutBottom = 0.06;
+		var cutHeight = Math.ceil(canvas.height * (1 - cutTop - cutBottom));
+		tmpCanvas.width = Math.ceil(cutHeight * 16 / 9);
+		tmpCanvas.height = cutHeight;
+		var cx = tmpCanvas.getContext('2d');
+		cx.clearRect(0, 0, tmpCanvas.width, tmpCanvas.height);
+		var img = document.createElement('img');
+		img.src = dataUrl;
+		img.onload = function(){
+			cx.drawImage(
+				img,
+				0,
+				Math.floor(canvas.height * cutTop),
+				canvas.width,
+				cutHeight,
+				(tmpCanvas.width - canvas.width) * 0.5,
+				0,
+				canvas.width,
+				cutHeight);
+			var dataUrl2 = tmpCanvas.toDataURL();
+			var anchor = document.createElement('a');
+			anchor.download = 'kayacOnenga2020.png';
+			anchor.href = dataUrl2;
+			anchor.click();
+		};
+/*
 		if (dataUrl) {
 			var anchor = document.createElement('a');
 			anchor.download = 'kayacOnenga2020.png';
 			anchor.href = dataUrl;
 			anchor.click();
 		}
-	};
+	*/	};
 	var canvas = document.getElementById('screen');
 	canvas.addEventListener('mousedown', onMouseDown, false);
 	canvas.addEventListener('mousemove', onMouseMove, false);
