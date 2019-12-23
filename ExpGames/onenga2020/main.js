@@ -1450,7 +1450,7 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 		} else if (resultType === 6) { // 超美
 			text1 = '超美運';
 		} else if (resultType === 7) { // シン美
-			text1 = 'シン・美運';
+			text1 = 'ｼﾝ·美運';
 		}
 		var message = '【KAI運TAP】\n';
 		message += '今年の運は\n';
@@ -1514,7 +1514,6 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 			if (middleSize > bottomSize) {
 				mb *= revPenalty;
 			}
-
 			var balance = Math.floor(100 * Math.min(tm, mb));
 			balance = Math.max(0, balance);
 			if (balance < 60) {
