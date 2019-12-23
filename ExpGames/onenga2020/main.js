@@ -1418,7 +1418,7 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 		var text0 = '';
 		var text1 = '';
 		if (resultType === 7) { // シン美
-			text0 = '非の打ち所のない完璧な運です。';
+			text0 = '誰も見たことがない神秘的な運です';
 		} else if (resultType === 6) { // 超美
 			text0 = '非の打ち所のない完璧な運です。';
 		} else if (resultType === 5) { // 大美
