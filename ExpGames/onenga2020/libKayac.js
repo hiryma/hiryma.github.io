@@ -1917,9 +1917,9 @@ Kayac.Gpu.prototype.setConstant = function (name, value) {
 				}
 			} else {
 				if (c == 2) { //2
-					gl.uniform2fv(l, value[0], value[1]);
+					gl.uniform2f(l, value[0], value[1]);
 				} else { //1
-					gl.uniform1fv(l, value[0]);
+					gl.uniform1f(l, value[0]);
 				}
 			}
 		} else {
@@ -2175,146 +2175,6 @@ Kayac.Shader = function (arg) {
 
 Kayac.Shader.prototype.getGlObject = function () {
 	return this.mGlObject;
-};
-
-// Mesh
-Kayac.Mesh = function (shader, vertexFormat, name) {
-	this.name = name || 'unnamed mesh';
-	this.mVertexBuffer = null;
-	this.mIndexBuffer = null;
-	this.mShader = shader;
-	this.mVertexFormat = vertexFormat;
-	this.mVertexCount = 0;
-};
-
-Kayac.Mesh.prototype.setCylinder = function (gpu, hDiv, vDiv, yMin, yMax, topFace, bottomFace) {
-	if ((vDiv < 2) || (hDiv < 3)) {
-		throw 'setSphere(). invalid args. hDiv >= 3, vDiv >= 2';
-	}
-	var floatStride = this.mVertexFormat.stride / 4;
-	// 一旦重複しない頂点を生成して座標のみ入れていく
-	var vertexCount = (vDiv + 1) * hDiv;
-	var vertices = new Float32Array(vertexCount * floatStride);
-	var index = 0;
-	var p = [0, 0];
-	var yRange = yMax - yMin;
-	for (var vIndex = 0; vIndex <= vDiv; ++vIndex) {
-		p[1] = yMax - (yRange * vIndex / vDiv);
-		for (var hIndex = 0; hIndex < hDiv; ++hIndex) {
-			var theta = Math.PI * 2 * hIndex / hDiv;
-			p[0] = theta;
-			this.setVertex(vertices, index, p);
-			++index;
-		}
-	}
-	console.assert(index === vertexCount, index + " !== " + vertexCount);
-
-	var indexCount = ((hDiv - 2) * 3 * 2) + (vDiv * hDiv * 6); // 蓋2枚と側面
-	var indices = new Uint16Array(indexCount);
-	var index = 0;
-	// 上面
-	if (topFace) {
-		for (var i = 0; i < (hDiv - 2); ++i) {
-			indices[index + 0] = 0;
-			indices[index + 1] = i + 2;
-			indices[index + 2] = i + 1;
-			index += 3;
-		}
-	}
-	// 側面
-	for (var vIndex = 1; vIndex <= vDiv; ++vIndex) {
-		for (var hIndex = 0; hIndex < hDiv; ++hIndex) {
-			var hNext = ((hIndex + 1) >= hDiv) ? 0 : (hIndex + 1);
-			indices[index + 0] = ((vIndex - 1) * hDiv) + hIndex;
-			indices[index + 1] = ((vIndex - 1) * hDiv) + hNext;
-			indices[index + 2] = (vIndex * hDiv) + hIndex;
-			indices[index + 3] = (vIndex * hDiv) + hNext;
-			indices[index + 4] = indices[index + 2];
-			indices[index + 5] = indices[index + 1];
-			index += 6;
-		}
-	}
-	// 下面
-	if (bottomFace) {
-		var base = vertexCount - hDiv;
-		for (var i = 0; i < (hDiv - 2); ++i) {
-			indices[index + 0] = base;
-			indices[index + 1] = base + i + 1; // 下面はひっくりかえす
-			indices[index + 2] = base + i + 2;
-			index += 3;
-		}
-	}
-	indexCount = index;
-
-	this.mVertexBuffer = new Kayac.VertexBuffer({
-		gpu: gpu,
-		name: this.name + '_vb',
-		data: vertices
-	});
-	this.mIndexBuffer = new Kayac.IndexBuffer({
-		gpu: gpu,
-		name: this.name + '_ib',
-		data: indices
-	});
-	this.mVertexCount = indexCount;
-};
-Kayac.Mesh.generateVertexFormat = function () {
-	var ret = {
-		stride: 8,
-		elements: [
-			{ offset: 0, vectorDimension: 2, name: 'aCoord' },
-		]
-	};
-	return ret;
-};
-Kayac.Mesh.prototype.setVertex = function (
-	data,
-	index,
-	coord) {
-
-	var offset = index * this.mVertexFormat.stride / 4;
-	Kayac.copyArray(data, offset + 0, coord, 0, 2);
-};
-Kayac.Mesh.prototype.draw = function (
-	gpu,
-	pvwMatrix,
-	wMatrix,
-	wMatrixInvTransposed,
-	albedo,
-	emission,
-	polynominal,
-	lightVector,
-	fresnel0) {
-
-	gpu.setVertexBuffer(this.mVertexBuffer);
-	gpu.setIndexBuffer(this.mIndexBuffer);
-	gpu.setShader(this.mShader);
-	gpu.setVertexFormat(this.mVertexFormat);
-
-	var m = pvwMatrix; // 別名
-	gpu.setConstant('uTransform0', [m.m00, m.m01, m.m02, m.m03]);
-	gpu.setConstant('uTransform1', [m.m10, m.m11, m.m12, m.m13]);
-	gpu.setConstant('uTransform2', [m.m20, m.m21, m.m22, m.m23]);
-	gpu.setConstant('uTransform3', [m.m30, m.m31, m.m32, m.m33]);
-
-	m = wMatrix; // 別名
-	gpu.setConstant('uToWorld0', [m.m00, m.m01, m.m02, m.m03]);
-	gpu.setConstant('uToWorld1', [m.m10, m.m11, m.m12, m.m13]);
-	gpu.setConstant('uToWorld2', [m.m20, m.m21, m.m22, m.m23]);
-
-	m = wMatrixInvTransposed; // 別名
-	gpu.setConstant('uToWorldNormal0', [m.m00, m.m01, m.m02]);
-	gpu.setConstant('uToWorldNormal1', [m.m10, m.m11, m.m12]);
-	gpu.setConstant('uToWorldNormal2', [m.m20, m.m21, m.m22]);
-	gpu.setConstant('uAlbedo', albedo);
-	gpu.setConstant('uEmission', emission);
-	gpu.setConstant('uFresnel0', fresnel0);
-	gpu.setConstant('uPolynominal', polynominal);
-	var poly4 = (polynominal.length >= 5) ? polynominal[4] : 0;
-	gpu.setConstant('uPolynominal4', poly4);
-	gpu.setConstant('uLightVector', [lightVector.x, lightVector.y, lightVector.z]);
-
-	gpu.draw(this.mVertexCount, Kayac.Gpu.Primitive.Triangle, 0);
 };
 
 // Camera3d

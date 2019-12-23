@@ -10,8 +10,8 @@ UnkoNenga.fetchImages = function () {
 };
 UnkoNenga.isImagesFetched = function () {
 	var complete = true;
-	for (var i = 0; i < UnkoNenga.fetchedImageElements.length; ++i){
-		if (UnkoNenga.fetchedImageElements[i].complete === false){
+	for (var i = 0; i < UnkoNenga.fetchedImageElements.length; ++i) {
+		if (UnkoNenga.fetchedImageElements[i].complete === false) {
 			complete = false;
 			break;
 		}
@@ -65,235 +65,242 @@ UnkoNenga.uiAtlas = { // ここ以下はAtlasMakerによる自動生成
 			"y": 1264
 		},
 		{
-			"name": "result_text_syobiun",
+			"name": "result_text_shinbiun",
 			"width": 604,
 			"height": 220,
 			"x": 4,
 			"y": 1488
 		},
 		{
-			"name": "result_text_syobsyuuun",
+			"name": "result_text_syobiun",
 			"width": 604,
 			"height": 220,
 			"x": 4,
 			"y": 1712
 		},
 		{
+			"name": "result_text_syobsyuuun",
+			"width": 604,
+			"height": 220,
+			"x": 4,
+			"y": 1936
+		},
+		{
 			"name": "title",
 			"width": 570,
 			"height": 146,
 			"x": 4,
-			"y": 1936
+			"y": 2160
 		},
 		{
 			"name": "text_setsumei",
 			"width": 536,
 			"height": 224,
 			"x": 4,
-			"y": 2086
+			"y": 2310
 		},
 		{
 			"name": "result_text01",
 			"width": 450,
 			"height": 50,
 			"x": 544,
-			"y": 2086
+			"y": 2310
 		},
 		{
 			"name": "result_text03",
 			"width": 418,
 			"height": 50,
 			"x": 4,
-			"y": 2314
+			"y": 2538
 		},
 		{
 			"name": "text_bottom",
 			"width": 416,
 			"height": 180,
 			"x": 426,
-			"y": 2314
+			"y": 2538
 		},
 		{
 			"name": "text_middle",
 			"width": 416,
 			"height": 180,
 			"x": 4,
-			"y": 2498
+			"y": 2722
 		},
 		{
 			"name": "btm_start",
 			"width": 410,
 			"height": 84,
 			"x": 424,
-			"y": 2498
+			"y": 2722
 		},
 		{
 			"name": "btm_tap",
 			"width": 256,
 			"height": 256,
 			"x": 4,
-			"y": 2682
+			"y": 2906
 		},
 		{
 			"name": "text_top",
 			"width": 256,
 			"height": 180,
 			"x": 264,
-			"y": 2682
+			"y": 2906
 		},
 		{
 			"name": "result",
 			"width": 250,
 			"height": 58,
 			"x": 524,
-			"y": 2682
+			"y": 2906
 		},
 		{
 			"name": "btm_retry",
 			"width": 244,
 			"height": 54,
 			"x": 778,
-			"y": 2682
+			"y": 2906
 		},
 		{
 			"name": "text_sound",
 			"width": 226,
 			"height": 67,
 			"x": 4,
-			"y": 2942
+			"y": 3166
 		},
 		{
 			"name": "result_balance_beautiful",
 			"width": 218,
 			"height": 42,
 			"x": 234,
-			"y": 2942
+			"y": 3166
 		},
 		{
 			"name": "result_balance",
 			"width": 180,
 			"height": 42,
 			"x": 456,
-			"y": 2942
+			"y": 3166
 		},
 		{
 			"name": "result_size_medium",
 			"width": 160,
 			"height": 42,
 			"x": 640,
-			"y": 2942
+			"y": 3166
 		},
 		{
 			"name": "btm_twitter",
 			"width": 150,
 			"height": 46,
 			"x": 804,
-			"y": 2942
+			"y": 3166
 		},
 		{
 			"name": "result_size_small",
 			"width": 148,
 			"height": 42,
 			"x": 4,
-			"y": 3013
+			"y": 3237
 		},
 		{
 			"name": "result_size_large",
 			"width": 138,
 			"height": 42,
 			"x": 156,
-			"y": 3013
+			"y": 3237
 		},
 		{
 			"name": "result_balance_ugly",
 			"width": 126,
 			"height": 42,
 			"x": 298,
-			"y": 3013
+			"y": 3237
 		},
 		{
 			"name": "result_size",
 			"width": 100,
 			"height": 42,
 			"x": 428,
-			"y": 3013
+			"y": 3237
 		},
 		{
 			"name": "btm_photo",
 			"width": 68,
 			"height": 56,
 			"x": 532,
-			"y": 3013
+			"y": 3237
 		},
 		{
 			"name": "num_0",
 			"width": 48,
 			"height": 48,
 			"x": 604,
-			"y": 3013
+			"y": 3237
 		},
 		{
 			"name": "num_1",
 			"width": 48,
 			"height": 48,
 			"x": 656,
-			"y": 3013
+			"y": 3237
 		},
 		{
 			"name": "num_2",
 			"width": 48,
 			"height": 48,
 			"x": 708,
-			"y": 3013
+			"y": 3237
 		},
 		{
 			"name": "num_3",
 			"width": 48,
 			"height": 48,
 			"x": 760,
-			"y": 3013
+			"y": 3237
 		},
 		{
 			"name": "num_4",
 			"width": 48,
 			"height": 48,
 			"x": 812,
-			"y": 3013
+			"y": 3237
 		},
 		{
 			"name": "num_5",
 			"width": 48,
 			"height": 48,
 			"x": 864,
-			"y": 3013
+			"y": 3237
 		},
 		{
 			"name": "num_6",
 			"width": 48,
 			"height": 48,
 			"x": 916,
-			"y": 3013
+			"y": 3237
 		},
 		{
 			"name": "num_7",
 			"width": 48,
 			"height": 48,
 			"x": 968,
-			"y": 3013
+			"y": 3237
 		},
 		{
 			"name": "num_8",
 			"width": 48,
 			"height": 48,
 			"x": 4,
-			"y": 3073
+			"y": 3297
 		},
 		{
 			"name": "num_9",
 			"width": 48,
 			"height": 48,
 			"x": 56,
-			"y": 3073
+			"y": 3297
 		}
 	],
 	"width": 1024,
@@ -353,6 +360,15 @@ UnkoNenga.unkoScaleFixAnimation = {
 UnkoNenga.uiTransforms = [
 	{
 		"name": "result_flame_bg",
+		"pivot": [0.5, 0.5],
+		"anchor": [0.5, 0.8],
+		"scale": [1, 1],
+		"position": [0, 0],
+		"texcoordOffset": [0, 0],
+		"opacity": 1
+	},
+	{
+		"name": "result_text_shinbiun",
 		"pivot": [0.5, 0.5],
 		"anchor": [0.5, 0.8],
 		"scale": [1, 1],
@@ -641,11 +657,11 @@ UnkoNenga.Unko = function (gpu, shader, vertexFormat, plateInterval, plateThickn
 	var hDiv = 64;
 	var vDiv = 32;
 	this.meshes = [];
-	this.meshes[this.Parts.Bottom] = new Kayac.Mesh(shader, vertexFormat, 'unkoMeshBottom');
+	this.meshes[this.Parts.Bottom] = new UnkoNenga.Mesh(shader, vertexFormat, 'unkoMeshBottom');
 	this.meshes[this.Parts.Bottom].setCylinder(gpu, hDiv, vDiv, -1, 1, true, true);
-	this.meshes[this.Parts.Middle] = new Kayac.Mesh(shader, vertexFormat, 'unkoMeshMiddle');
+	this.meshes[this.Parts.Middle] = new UnkoNenga.Mesh(shader, vertexFormat, 'unkoMeshMiddle');
 	this.meshes[this.Parts.Middle].setCylinder(gpu, hDiv, vDiv, -1, 1, true, true);
-	this.meshes[this.Parts.Top] = new Kayac.Mesh(shader, vertexFormat, 'unkoMeshTop');
+	this.meshes[this.Parts.Top] = new UnkoNenga.Mesh(shader, vertexFormat, 'unkoMeshTop');
 	this.meshes[this.Parts.Top].setCylinder(gpu, hDiv, vDiv, -1, this.topYMax, true, true);
 
 	this.transform = new Kayac.Transform();
@@ -676,7 +692,11 @@ UnkoNenga.Unko = function (gpu, shader, vertexFormat, plateInterval, plateThickn
 
 	this.mColor = [0, 0, 0];
 	this.mFresnel0 = 0.04;
+
+	// 虹
+	this.mRainbowTime = -1;
 };
+
 UnkoNenga.Unko.prototype.Parts = {
 	Bottom: 0,
 	Middle: 1,
@@ -684,7 +704,9 @@ UnkoNenga.Unko.prototype.Parts = {
 	Count: 3,
 };
 
-
+UnkoNenga.Unko.prototype.setRainbowEnabled = function (enabled) {
+	this.mRainbowTime = enabled ? 0 : -1;
+}
 
 UnkoNenga.Unko.prototype.startResultRotation = function () {
 	this.rotatorEnabled = true;
@@ -787,6 +809,9 @@ UnkoNenga.Unko.prototype.update = function (deltaTime) {
 	for (var i = 0; i < this.fixFlashes.length; ++i) {
 		this.fixFlashes[i].update(deltaTime);
 	}
+	if (this.mRainbowTime >= 0) {
+		this.mRainbowTime += deltaTime;
+	}
 };
 
 UnkoNenga.Unko.prototype.draw = function (
@@ -885,16 +910,19 @@ UnkoNenga.Unko.prototype.draw = function (
 	}
 	matrixStack.pop();
 };
+
 UnkoNenga.Unko.prototype.flash = function (index) {
 	var data = UnkoNenga.unkoScaleFixAnimation.emission;
 	this.fixFlashes[index].setData(data);
 };
+
 UnkoNenga.Unko.prototype.flashFinal = function () {
 	var data = UnkoNenga.unkoScaleFixAnimation.emissionFinal;
 	for (var i = 0; i < this.fixFlashes.length; ++i) {
 		this.fixFlashes[i].setData(data);
 	}
 };
+
 UnkoNenga.Unko.prototype.resetScale = function () {
 	this.scales[this.Parts.Bottom] = 2;
 	this.scales[this.Parts.Middle] = 1.5;
@@ -903,6 +931,7 @@ UnkoNenga.Unko.prototype.resetScale = function () {
 	this.transforms[this.Parts.Middle].scale.setXyz(1, this.plateThickness, 1);
 	this.transforms[this.Parts.Top].scale.setXyz(1, this.plateThickness, 1);
 };
+
 UnkoNenga.Unko.prototype.setTransparency = function (gpu, albedoOut, isTransparent) {
 	if (isTransparent) {
 		gpu.setBlendEnabled(true);
@@ -920,6 +949,7 @@ UnkoNenga.Unko.prototype.setTransparency = function (gpu, albedoOut, isTranspare
 		albedoOut[3] = 1;
 	}
 };
+
 UnkoNenga.Unko.prototype.drawMesh = function (
 	gpu,
 	matrixStack,
@@ -938,14 +968,178 @@ UnkoNenga.Unko.prototype.drawMesh = function (
 	pvwm.setMul44x34(pvm, wm);
 	var nm = new Kayac.M33(); // 法線変換行列
 	nm.setInvTranspose34(wm);
-	mesh.draw(gpu, pvwm, wm, nm, albedo, emission, polynominal, lightVector, this.mFresnel0);
+	mesh.draw(
+		gpu,
+		pvwm,
+		wm,
+		nm,
+		albedo,
+		emission,
+		polynominal,
+		lightVector,
+		this.mFresnel0,
+		this.mRainbowTime);
 	matrixStack.pop();
 };
+
 UnkoNenga.Unko.prototype.startScaling = function (speed, index) {
 	this.scaleIndex = index;
 	this.scaleSpeed = speed;
 };
 
+// Mesh
+UnkoNenga.Mesh = function (shader, vertexFormat, name) {
+	this.name = name || 'unnamed mesh';
+	this.mVertexBuffer = null;
+	this.mIndexBuffer = null;
+	this.mShader = shader;
+	this.mVertexFormat = vertexFormat;
+	this.mVertexCount = 0;
+};
+
+UnkoNenga.Mesh.prototype.setCylinder = function (gpu, hDiv, vDiv, yMin, yMax, topFace, bottomFace) {
+	if ((vDiv < 2) || (hDiv < 3)) {
+		throw 'setSphere(). invalid args. hDiv >= 3, vDiv >= 2';
+	}
+	var floatStride = this.mVertexFormat.stride / 4;
+	// 一旦重複しない頂点を生成して座標のみ入れていく
+	var vertexCount = (vDiv + 1) * hDiv;
+	var vertices = new Float32Array(vertexCount * floatStride);
+	var index = 0;
+	var p = [0, 0];
+	var yRange = yMax - yMin;
+	for (var vIndex = 0; vIndex <= vDiv; ++vIndex) {
+		p[1] = yMax - (yRange * vIndex / vDiv);
+		for (var hIndex = 0; hIndex < hDiv; ++hIndex) {
+			var theta = Math.PI * 2 * hIndex / hDiv;
+			p[0] = theta;
+			this.setVertex(vertices, index, p);
+			++index;
+		}
+	}
+	console.assert(index === vertexCount, index + " !== " + vertexCount);
+
+	var indexCount = ((hDiv - 2) * 3 * 2) + (vDiv * hDiv * 6); // 蓋2枚と側面
+	var indices = new Uint16Array(indexCount);
+	var index = 0;
+	// 上面
+	if (topFace) {
+		for (var i = 0; i < (hDiv - 2); ++i) {
+			indices[index + 0] = 0;
+			indices[index + 1] = i + 2;
+			indices[index + 2] = i + 1;
+			index += 3;
+		}
+	}
+	// 側面
+	for (var vIndex = 1; vIndex <= vDiv; ++vIndex) {
+		for (var hIndex = 0; hIndex < hDiv; ++hIndex) {
+			var hNext = ((hIndex + 1) >= hDiv) ? 0 : (hIndex + 1);
+			indices[index + 0] = ((vIndex - 1) * hDiv) + hIndex;
+			indices[index + 1] = ((vIndex - 1) * hDiv) + hNext;
+			indices[index + 2] = (vIndex * hDiv) + hIndex;
+			indices[index + 3] = (vIndex * hDiv) + hNext;
+			indices[index + 4] = indices[index + 2];
+			indices[index + 5] = indices[index + 1];
+			index += 6;
+		}
+	}
+	// 下面
+	if (bottomFace) {
+		var base = vertexCount - hDiv;
+		for (var i = 0; i < (hDiv - 2); ++i) {
+			indices[index + 0] = base;
+			indices[index + 1] = base + i + 1; // 下面はひっくりかえす
+			indices[index + 2] = base + i + 2;
+			index += 3;
+		}
+	}
+	indexCount = index;
+
+	this.mVertexBuffer = new Kayac.VertexBuffer({
+		gpu: gpu,
+		name: this.name + '_vb',
+		data: vertices
+	});
+	this.mIndexBuffer = new Kayac.IndexBuffer({
+		gpu: gpu,
+		name: this.name + '_ib',
+		data: indices
+	});
+	this.mVertexCount = indexCount;
+};
+
+UnkoNenga.Mesh.generateVertexFormat = function () {
+	var ret = {
+		stride: 8,
+		elements: [
+			{ offset: 0, vectorDimension: 2, name: 'aCoord' },
+		]
+	};
+	return ret;
+};
+
+UnkoNenga.Mesh.prototype.setVertex = function (
+	data,
+	index,
+	coord) {
+
+	var offset = index * this.mVertexFormat.stride / 4;
+	Kayac.copyArray(data, offset + 0, coord, 0, 2);
+};
+
+UnkoNenga.Mesh.prototype.draw = function (
+	gpu,
+	pvwMatrix,
+	wMatrix,
+	wMatrixInvTransposed,
+	albedo,
+	emission,
+	polynominal,
+	lightVector,
+	fresnel0,
+	rainbowTime) {
+
+	gpu.setVertexBuffer(this.mVertexBuffer);
+	gpu.setIndexBuffer(this.mIndexBuffer);
+	gpu.setShader(this.mShader);
+	gpu.setVertexFormat(this.mVertexFormat);
+
+	var m = pvwMatrix; // 別名
+	gpu.setConstant('uTransform0', [m.m00, m.m01, m.m02, m.m03]);
+	gpu.setConstant('uTransform1', [m.m10, m.m11, m.m12, m.m13]);
+	gpu.setConstant('uTransform2', [m.m20, m.m21, m.m22, m.m23]);
+	gpu.setConstant('uTransform3', [m.m30, m.m31, m.m32, m.m33]);
+
+	m = wMatrix; // 別名
+	gpu.setConstant('uToWorld0', [m.m00, m.m01, m.m02, m.m03]);
+	gpu.setConstant('uToWorld1', [m.m10, m.m11, m.m12, m.m13]);
+	gpu.setConstant('uToWorld2', [m.m20, m.m21, m.m22, m.m23]);
+
+	m = wMatrixInvTransposed; // 別名
+	gpu.setConstant('uToWorldNormal0', [m.m00, m.m01, m.m02]);
+	gpu.setConstant('uToWorldNormal1', [m.m10, m.m11, m.m12]);
+	gpu.setConstant('uToWorldNormal2', [m.m20, m.m21, m.m22]);
+	gpu.setConstant('uAlbedo', albedo);
+	gpu.setConstant('uEmission', emission);
+	gpu.setConstant('uFresnel0', fresnel0);
+	gpu.setConstant('uPolynominal', polynominal);
+	var poly4 = (polynominal.length >= 5) ? polynominal[4] : 0;
+	gpu.setConstant('uPolynominal4', poly4);
+	gpu.setConstant('uLightVector', [lightVector.x, lightVector.y, lightVector.z]);
+	var rainbow = [];
+	rainbow[1] = rainbowTime;
+	if (rainbowTime >= 0) {
+		rainbow[0] = 1;
+	} else {
+		rainbow[0] = 0;
+	}
+	gpu.setConstant('uRainbow', rainbow);
+
+	gpu.draw(this.mVertexCount, Kayac.Gpu.Primitive.Triangle, 0);
+};
+
+// Rotator
 UnkoNenga.Rotator = function (axis0, axis1) {
 	this.m0 = new Kayac.SpringDamper();
 	this.mAxis0 = Kayac.V3.createV(axis0);
@@ -1102,6 +1296,7 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 			var button = state.spriteInstances['btm_start'];
 			button.setAnimation(uiAnimations['button_loop']);
 			state.unko.startDefaultRotation(false);
+			state.unko.setRainbowEnabled(false);
 		},
 		onDown: function () {
 			if (state.se.start) {
@@ -1222,36 +1417,40 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 	var showTweetWindow = function (size, balance, resultType) {
 		var text0 = '';
 		var text1 = '';
-		if (resultType === 6){ // 超美
+		if (resultType === 7) { // シン美
 			text0 = '非の打ち所のない完璧な運です。';
-		}else if (resultType === 5){ // 大美
+		}else if (resultType === 6) { // 超美
+			text0 = '非の打ち所のない完璧な運です。';
+		} else if (resultType === 5) { // 大美
 			text0 = '大きくて美しい運です。';
-		}else if (resultType === 3){ // 中美
+		} else if (resultType === 3) { // 中美
 			text0 = 'イイ感じの運です。';
-		}else if (resultType === 1){ // 小美
+		} else if (resultType === 1) { // 小美
 			text0 = 'とても個性的な運です。';
-		}else if (resultType === 0){ // 小醜
+		} else if (resultType === 0) { // 小醜
 			text0 = 'とても個性的な運です。';
-		}else if ((size < 30) || (balance < 30)){
+		} else if ((size < 30) || (balance < 30)) {
 			text0 = 'とても個性的な運です。';
-		}else{
+		} else {
 			text0 = '一般的な運です。';
 		}
 
-		if (resultType === 0){ // 小醜
+		if (resultType === 0) { // 小醜
 			text1 = '小醜運';
-		}else if (resultType === 1){ // 小美
+		} else if (resultType === 1) { // 小美
 			text1 = '小美運';
-		}else if (resultType === 2){ // 中醜
+		} else if (resultType === 2) { // 中醜
 			text1 = '中醜運';
-		}else if (resultType === 3){ // 中美
+		} else if (resultType === 3) { // 中美
 			text1 = '中美運';
-		}else if (resultType === 4){ // 大醜
+		} else if (resultType === 4) { // 大醜
 			text1 = '大醜運';
-		}else if (resultType === 5){ // 大美
+		} else if (resultType === 5) { // 大美
 			text1 = '大美運';
-		}else if (resultType === 6){ // 超美
+		} else if (resultType === 6) { // 超美
 			text1 = '超美運';
+		} else if (resultType === 7) { // シン美
+			text1 = 'シン・美運';
 		}
 		var message = '【KAI運TAP】\n';
 		message += '今年の運は\n';
@@ -1318,7 +1517,6 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 
 			var balance = Math.floor(100 * Math.min(tm, mb));
 			balance = Math.max(0, balance);
-
 			if (balance < 60) {
 				this.balanceSprite = state.spriteInstances['result_balance_ugly'];
 			} else {
@@ -1340,7 +1538,8 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 				'result_text_cyubiun',
 				'result_text_daibsyuuun',
 				'result_text_daibiun',
-				'result_text_cyoubiun'
+				'result_text_cyoubiun',
+				'result_text_shinbiun'
 			];
 
 			console.log('score size=' + size + ' balance=' + balance + ' mb=' + mb + ' tm=' + tm);
@@ -1363,8 +1562,13 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 				} else if (balance < 90) {
 					this.resultType = 5;
 				} else {
-					this.resultType = 6;
-					state.unko.setColor(specialUnkoColor);
+					if ((size >= 110) && (balance >= 95)) {
+						this.resultType = 7;
+						state.unko.setRainbowEnabled(true);
+					} else {
+						this.resultType = 6;
+						state.unko.setColor(specialUnkoColor);
+					}
 				}
 			}
 			this.resultSprite = state.spriteInstances[resultNames[this.resultType]];
@@ -1384,7 +1588,6 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 
 			this.sizeScore = size;
 			this.balanceScore = balance;
-
 		},
 		terminate: function () {
 			if (state.bgm !== null) {
@@ -1492,7 +1695,7 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 			vertexShaderId: '3dvs',
 			fragmentShaderId: '3dfs'
 		});
-		state.vertexFormat3d = Kayac.Mesh.generateVertexFormat();
+		state.vertexFormat3d = UnkoNenga.Mesh.generateVertexFormat();
 		state.shader2d = new Kayac.Shader({
 			gpu: state.gpu,
 			name: 'shader2d',
@@ -1798,7 +2001,7 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 		cx.clearRect(0, 0, tmpCanvas.width, tmpCanvas.height);
 		var img = document.createElement('img');
 		img.src = dataUrl;
-		img.onload = function(){
+		img.onload = function () {
 			cx.drawImage(
 				img,
 				0,
