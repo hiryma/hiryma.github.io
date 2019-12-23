@@ -1467,7 +1467,7 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 		tweetUrl += '&hashtags=';
 		tweetUrl += encodeURIComponent('おみくじ,あけおめ,開運,面白法人カヤック');
 		tweetUrl += '&url=';
-		tweetUrl += encodeURIComponent('https://hiryma.github.io/ExpGames/onenga2020/index.html');
+		tweetUrl += encodeURIComponent('https://www.kayac.com/nenga/2020/kaiun/');
 		var anchor = document.createElement('a');
 		anchor.href = tweetUrl;
 		anchor.click();
