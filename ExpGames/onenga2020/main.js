@@ -1963,7 +1963,7 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 	var onPointerDown = function () {
 		// クリックタイミングでbgm鳴ってなければ鳴らす
 		if (state.bgm === null) {
-			state.bgm = playAudio('bgm01_main_191219a');
+			state.bgm = playAudio('bgm01_main_191223a');
 			if (state.bgm !== null) {
 				state.bgm.addEventListener('ended', onBgmEnded, false);
 			}
