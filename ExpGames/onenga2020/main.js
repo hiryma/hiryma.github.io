@@ -170,36 +170,36 @@ UnkoNenga.uiAtlas = { // ここ以下はAtlasMakerによる自動生成
 			"y": 3166
 		},
 		{
-			"name": "result_balance_beautiful",
-			"width": 218,
+			"name": "result_balance",
+			"width": 180,
 			"height": 42,
 			"x": 234,
 			"y": 3166
 		},
 		{
-			"name": "result_balance",
+			"name": "result_size_medium",
 			"width": 180,
 			"height": 42,
-			"x": 456,
-			"y": 3166
-		},
-		{
-			"name": "result_size_medium",
-			"width": 160,
-			"height": 42,
-			"x": 640,
+			"x": 418,
 			"y": 3166
 		},
 		{
 			"name": "btm_twitter",
 			"width": 150,
 			"height": 46,
-			"x": 804,
+			"x": 602,
 			"y": 3166
 		},
 		{
 			"name": "result_size_small",
 			"width": 148,
+			"height": 42,
+			"x": 756,
+			"y": 3166
+		},
+		{
+			"name": "result_balance_beautiful",
+			"width": 138,
 			"height": 42,
 			"x": 4,
 			"y": 3237
@@ -208,84 +208,84 @@ UnkoNenga.uiAtlas = { // ここ以下はAtlasMakerによる自動生成
 			"name": "result_size_large",
 			"width": 138,
 			"height": 42,
-			"x": 156,
+			"x": 146,
 			"y": 3237
 		},
 		{
 			"name": "result_balance_ugly",
 			"width": 126,
 			"height": 42,
-			"x": 298,
+			"x": 288,
 			"y": 3237
 		},
 		{
 			"name": "result_size",
 			"width": 100,
 			"height": 42,
-			"x": 428,
+			"x": 418,
 			"y": 3237
 		},
 		{
 			"name": "btm_photo",
 			"width": 68,
 			"height": 56,
-			"x": 532,
+			"x": 522,
 			"y": 3237
 		},
 		{
 			"name": "num_0",
 			"width": 48,
 			"height": 48,
-			"x": 604,
+			"x": 594,
 			"y": 3237
 		},
 		{
 			"name": "num_1",
 			"width": 48,
 			"height": 48,
-			"x": 656,
+			"x": 646,
 			"y": 3237
 		},
 		{
 			"name": "num_2",
 			"width": 48,
 			"height": 48,
-			"x": 708,
+			"x": 698,
 			"y": 3237
 		},
 		{
 			"name": "num_3",
 			"width": 48,
 			"height": 48,
-			"x": 760,
+			"x": 750,
 			"y": 3237
 		},
 		{
 			"name": "num_4",
 			"width": 48,
 			"height": 48,
-			"x": 812,
+			"x": 802,
 			"y": 3237
 		},
 		{
 			"name": "num_5",
 			"width": 48,
 			"height": 48,
-			"x": 864,
+			"x": 854,
 			"y": 3237
 		},
 		{
 			"name": "num_6",
 			"width": 48,
 			"height": 48,
-			"x": 916,
+			"x": 906,
 			"y": 3237
 		},
 		{
 			"name": "num_7",
 			"width": 48,
 			"height": 48,
-			"x": 968,
+			"x": 958,
 			"y": 3237
 		},
 		{
@@ -1419,7 +1419,7 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 		var text1 = '';
 		if (resultType === 7) { // シン美
 			text0 = '非の打ち所のない完璧な運です。';
-		}else if (resultType === 6) { // 超美
+		} else if (resultType === 6) { // 超美
 			text0 = '非の打ち所のない完璧な運です。';
 		} else if (resultType === 5) { // 大美
 			text0 = '大きくて美しい運です。';
