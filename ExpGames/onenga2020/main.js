@@ -1426,7 +1426,7 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 		} else if (resultType === 3) { // 中美
 			text0 = 'イイ感じの運です。';
 		} else if (resultType === 1) { // 小美
-			text0 = 'とても個性的な運です。';
+			text0 = '小さくてかわいい運です。';
 		} else if (resultType === 0) { // 小醜
 			text0 = 'とても個性的な運です。';
 		} else if ((size < 30) || (balance < 30)) {
