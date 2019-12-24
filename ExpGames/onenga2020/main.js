@@ -2045,4 +2045,21 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 	initializeGpu(canvas);
 	startBeforeLoad();
 	mainLoop();
+
+	// IEがdownload属性効かない問題への対処 http://var.blog.jp/archives/72862256.html からコピペ
+	if (document.documentMode && navigator.msSaveOrOpenBlob) {
+		window.addEventListener("click", function (eve) {
+			var a = eve.target;
+			if (!a.hasAttribute("download")) return;
+			eve.preventDefault();
+			var filename = a.getAttribute("download");
+			var xhr = new XMLHttpRequest();
+			xhr.open("GET", a.href);
+			xhr.responseType = "blob"
+			xhr.send();
+			xhr.onload = function () {
+				navigator.msSaveOrOpenBlob(xhr.response, filename);
+			};
+		});
+	}
 }());
