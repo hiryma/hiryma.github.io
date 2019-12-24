@@ -1264,7 +1264,7 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 		// canvas解像度確定
 		canvas.width = pxW;
 		canvas.height = pxH;
-		canvas.style = 'width: ' + elementW + 'px; height:' + elementH + 'px;';
+		canvas.setAttribute('style', 'width: ' + elementW + 'px; height:' + elementH + 'px;');
 
 		console.log('logical: ' + logicalWidth + 'x' + logicalHeight);
 		console.log('element: ' + elementW + 'x' + elementH);
