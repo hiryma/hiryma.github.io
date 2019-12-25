@@ -1468,7 +1468,7 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 		tweetUrl += encodeURIComponent('おみくじ,あけおめ,開運,面白法人カヤック');
 		tweetUrl += '&url=';
 		tweetUrl += encodeURIComponent('https://www.kayac.com/nenga/2020/kaiun/');
-		var anchor = document.createElement('a');
+		var anchor = document.getElementById('tweetAnchor');
 		anchor.href = tweetUrl;
 		anchor.click();
 	};
@@ -1990,7 +1990,7 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 	};
 	var onClickScreenShot = function (e) {
 		var dataUrl = canvas.toDataURL();
-		var tmpCanvas = document.createElement('canvas');
+		var tmpCanvas = document.getElementById('screenShotCanvas');
 		var cutTop = 0.02;
 		var cutBottom = 0.06;
 		var cutHeight = Math.ceil(canvas.height * (1 - cutTop - cutBottom));
@@ -2012,19 +2012,25 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 				canvas.width,
 				cutHeight);
 			var dataUrl2 = tmpCanvas.toDataURL();
-			var anchor = document.createElement('a');
-			anchor.download = 'kayacOnenga2020.png';
-			anchor.href = dataUrl2;
-			anchor.click();
+			var filename = 'kayacOnenga2020.png';
+
+			// IE
+			if (document.documentMode && navigator.msSaveOrOpenBlob) {
+				var xhr = new XMLHttpRequest();
+				xhr.open("GET", dataUrl2);
+				xhr.responseType = "blob";
+				xhr.send();
+				xhr.onload = function () {
+					navigator.msSaveOrOpenBlob(xhr.response, filename);
+				};
+			} else {
+				var anchor = document.getElementById('downloadAnchor');
+				anchor.download = filename;
+				anchor.href = dataUrl2;
+				anchor.click();
+			}
 		};
-/*
-		if (dataUrl) {
-			var anchor = document.createElement('a');
-			anchor.download = 'kayacOnenga2020.png';
-			anchor.href = dataUrl;
-			anchor.click();
-		}
-	*/	};
+	};
 	var canvas = document.getElementById('screen');
 	canvas.addEventListener('mousedown', onMouseDown, false);
 	canvas.addEventListener('mousemove', onMouseMove, false);
@@ -2045,21 +2051,4 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 	initializeGpu(canvas);
 	startBeforeLoad();
 	mainLoop();
-
-	// IEがdownload属性効かない問題への対処 http://var.blog.jp/archives/72862256.html からコピペ
-	if (document.documentMode && navigator.msSaveOrOpenBlob) {
-		window.addEventListener("click", function (eve) {
-			var a = eve.target;
-			if (!a.hasAttribute("download")) return;
-			eve.preventDefault();
-			var filename = a.getAttribute("download");
-			var xhr = new XMLHttpRequest();
-			xhr.open("GET", a.href);
-			xhr.responseType = "blob"
-			xhr.send();
-			xhr.onload = function () {
-				navigator.msSaveOrOpenBlob(xhr.response, filename);
-			};
-		});
-	}
 }());
