@@ -2015,7 +2015,7 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 			var filename = 'kayacOnenga2020.png';
 
 			// IE
-			if (document.documentMode && navigator.msSaveOrOpenBlob) {
+			if (navigator.msSaveOrOpenBlob) {
 				var xhr = new XMLHttpRequest();
 				xhr.open("GET", dataUrl2);
 				xhr.responseType = "blob";
