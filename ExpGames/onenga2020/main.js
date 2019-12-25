@@ -1998,7 +1998,7 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 		tmpCanvas.height = cutHeight;
 		var cx = tmpCanvas.getContext('2d');
 		cx.clearRect(0, 0, tmpCanvas.width, tmpCanvas.height);
-		var img = document.createElement('img');
+		var img = document.getElementById('screenShotImg');
 		img.src = dataUrl;
 		img.onload = function () {
 			cx.drawImage(
