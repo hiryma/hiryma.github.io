@@ -1471,6 +1471,8 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 		var anchor = document.getElementById('tweetAnchor');
 		anchor.href = tweetUrl;
 		anchor.click();
+
+		gtag('event', 'tweet');
 	};
 	var resultScene = {
 		name: 'result',
@@ -1587,6 +1589,12 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 
 			this.sizeScore = size;
 			this.balanceScore = balance;
+
+			gtag('event', 'result', {
+				event_label: this.resultType.toFixed(),
+				size: size,
+				balance: balance
+			});
 		},
 		terminate: function () {
 			if (state.bgm !== null) {
