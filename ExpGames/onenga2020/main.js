@@ -1472,7 +1472,7 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 		anchor.href = tweetUrl;
 		anchor.click();
 
-		gtag('event', 'tweet');
+		gtag('event', 'nenga2020_tweet', { event_category: 'nenga2020' });
 	};
 	var resultScene = {
 		name: 'result',
@@ -1518,6 +1518,7 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 			}
 			var balance = Math.floor(100 * Math.min(tm, mb));
 			balance = Math.max(0, balance);
+
 			if (balance < 60) {
 				this.balanceSprite = state.spriteInstances['result_balance_ugly'];
 			} else {
@@ -1590,10 +1591,9 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 			this.sizeScore = size;
 			this.balanceScore = balance;
 
-			gtag('event', 'result', {
-				event_label: this.resultType.toFixed(),
-				size: size,
-				balance: balance
+			gtag('event', 'nenga2020_result', {
+				event_category: 'nenga2020',
+				event_label: 'nenga_2020_result_' + this.resultType.toFixed(),
 			});
 		},
 		terminate: function () {
