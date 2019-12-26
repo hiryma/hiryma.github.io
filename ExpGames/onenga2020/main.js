@@ -2059,4 +2059,7 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 	initializeGpu(canvas);
 	startBeforeLoad();
 	mainLoop();
+
+	var logo = document.getElementById('kayacLogo');
+	logo.width = Math.round(canvas.clientWidth * 0.4);
 }());
