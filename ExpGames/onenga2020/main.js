@@ -1222,6 +1222,7 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 		unko: null,
 		lightRotator: null,
 		frameTime: 0,
+		playCount: 0,
 	};
 	var setResolution = function (canvas, requestAspect) {
 		var occupyRatio = 0.90;
@@ -1590,10 +1591,12 @@ UnkoNenga.Rotator.prototype.update = function (deltaTime) {
 
 			this.sizeScore = size;
 			this.balanceScore = balance;
+			state.playCount += 1;
 
 			gtag('event', 'nenga2020_result', {
 				event_category: 'nenga2020',
 				event_label: 'nenga_2020_result_' + this.resultType.toFixed(),
+				value: state.playCount
 			});
 		},
 		terminate: function () {
