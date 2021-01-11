@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "346410118275",
+    "firebase_url": "https://sg-parkmaster.firebaseio.com",
+    "project_id": "sg-parkmaster",
+    "storage_bucket": "sg-parkmaster.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:346410118275:android:5bf06220da3cd26d1bbfb6",
+        "android_client_info": {
+          "package_name": "com.kayac.park_master"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "346410118275-eka5b98d0bcm96p97f47a064p3u945jn.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDq-p4EtTS6AShuzWpPWdPQgAc_q7pVhB0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "346410118275-eka5b98d0bcm96p97f47a064p3u945jn.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "346410118275-o85lc759t1cpci9253ii7f5abmvv79ca.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.kayac.park-master"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
